@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>564</width>
-    <height>478</height>
+    <width>591</width>
+    <height>661</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,104 +16,47 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
     <item row="1" column="1">
-     <widget class="QPushButton" name="pushButton">
+     <widget class="QPushButton" name="BtnCreate1">
       <property name="text">
        <string>Создать папку</string>
       </property>
      </widget>
     </item>
     <item row="1" column="2">
-     <widget class="QPushButton" name="pushButton_2">
+     <widget class="QPushButton" name="BtnChoose1">
       <property name="text">
        <string>Выбрать папку</string>
       </property>
      </widget>
     </item>
     <item row="2" column="1" colspan="2">
-     <widget class="QLabel" name="label_2">
+     <widget class="QLabel" name="LblPath1">
       <property name="text">
        <string>ИЛИ введите путь до папки</string>
       </property>
      </widget>
     </item>
     <item row="0" column="1" colspan="2">
-     <widget class="QLabel" name="label">
+     <widget class="QLabel" name="LblStep1">
       <property name="font">
        <font>
         <pointsize>12</pointsize>
        </font>
       </property>
       <property name="text">
-       <string>Шаг1. Выбор и подготовка музыки</string>
+       <string>Шаг1. Выбор папки для итоговых файлов</string>
       </property>
      </widget>
     </item>
-    <item row="11" column="1" colspan="2">
-     <widget class="QLabel" name="label_5">
-      <property name="font">
-       <font>
-        <pointsize>6</pointsize>
-       </font>
-      </property>
+    <item row="5" column="1">
+     <widget class="QPushButton" name="BtnCreate2">
       <property name="text">
-       <string>Для справки: подходящий формат wav, 16бит, частота 48000 </string>
+       <string>Создать папку</string>
       </property>
      </widget>
     </item>
-    <item row="4" column="1">
-     <widget class="QLabel" name="label_3">
-      <property name="text">
-       <string>Файлы в папке:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="8" column="2">
-     <widget class="QPushButton" name="pushButton_4">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="text">
-       <string>Пропустить</string>
-      </property>
-     </widget>
-    </item>
-    <item row="7" column="1">
-     <widget class="QLabel" name="label_4">
-      <property name="text">
-       <string>Файлы в неподходящем формате выделены красным. 
-Для конвертации нажмите «Конвертировать»
-Или эти файлы можно пропустить</string>
-      </property>
-     </widget>
-    </item>
-    <item row="10" column="1" colspan="2">
-     <widget class="QPushButton" name="pushButton_5">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="text">
-       <string>Начать соотносить</string>
-      </property>
-     </widget>
-    </item>
-    <item row="7" column="2">
-     <widget class="QPushButton" name="pushButton_3">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="text">
-       <string>Конвертировать</string>
-      </property>
-     </widget>
-    </item>
-    <item row="3" column="1" colspan="2">
-     <widget class="QLineEdit" name="lineEdit"/>
-    </item>
-    <item row="6" column="1" colspan="2">
-     <widget class="QListView" name="listView"/>
-    </item>
-    <item row="9" column="1">
-     <widget class="QLabel" name="label_6">
+    <item row="13" column="1">
+     <widget class="QLabel" name="LblStep3">
       <property name="font">
        <font>
         <pointsize>12</pointsize>
@@ -124,6 +67,99 @@
       </property>
      </widget>
     </item>
+    <item row="6" column="1">
+     <widget class="QLabel" name="LblPath2">
+      <property name="text">
+       <string>Или введите путь до папки</string>
+      </property>
+     </widget>
+    </item>
+    <item row="4" column="1">
+     <widget class="QLabel" name="LblStep2">
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Шаг2. Выбор папки с музыкой</string>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="2">
+     <widget class="QPushButton" name="BtnChoose2">
+      <property name="text">
+       <string>Выбрать папку</string>
+      </property>
+     </widget>
+    </item>
+    <item row="15" column="1" colspan="2">
+     <widget class="QLabel" name="LblFormat">
+      <property name="font">
+       <font>
+        <pointsize>6</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Для справки: подходящий формат wav, 16бит, частота 48000 </string>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="1">
+     <widget class="QLabel" name="LblFiles">
+      <property name="text">
+       <string>Файлы в папке:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="12" column="2">
+     <widget class="QPushButton" name="BtnSkip">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Пропустить</string>
+      </property>
+     </widget>
+    </item>
+    <item row="11" column="1">
+     <widget class="QLabel" name="LblHelp">
+      <property name="text">
+       <string>Файлы в неподходящем формате выделены красным. 
+Для конвертации нажмите «Конвертировать»
+Или эти файлы можно пропустить</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="1" colspan="2">
+     <widget class="QPushButton" name="BtnCards">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Начать соотносить</string>
+      </property>
+     </widget>
+    </item>
+    <item row="11" column="2">
+     <widget class="QPushButton" name="BtnConvert">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Конвертировать</string>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1" colspan="2">
+     <widget class="QLineEdit" name="LinePath1"/>
+    </item>
+    <item row="10" column="1" colspan="2">
+     <widget class="QListView" name="LstFiles"/>
+    </item>
+    <item row="7" column="1" colspan="2">
+     <widget class="QLineEdit" name="LinePath2"/>
+    </item>
    </layout>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -131,7 +167,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>564</width>
+     <width>591</width>
      <height>26</height>
     </rect>
    </property>
