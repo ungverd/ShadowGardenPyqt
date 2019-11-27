@@ -8,7 +8,7 @@ import subprocess
 
 import serial
 
-import Usbhost
+#import Usbhost
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from loguru import logger
@@ -17,14 +17,25 @@ import ui
 
 _translate = QtCore.QCoreApplication.translate
 
+FRAMERATE = 48000
+SAMPLEWIDTH = 2 #2 bytes == 16 bits
+SAMPLEFMT = 's16' #ffmpeg format
+
+class FileFormat(Enum):
+    notMusic = 1
+    good = 2
+    bad = 3
 
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def __init__(self):
         super().__init__()
         self.setupUi(self)
+        self.BtnCreate1.clicked.connect(self.createDestFolder)
+        self.BtnChoose1.clicked.connect(self.selectDestFolder)
+        self.LinePath1.editingFinished.connect(self.typeDestFolder)
         
-    def classifyFile(self,path):
+    def classifyFile(self, path):
         if len(path) >= 4:
             if path[-4:] in (".mp3", ".oog"):
                 return FileFormat.bad
@@ -86,27 +97,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             if func(src, dst):
                 enterSourceObj.tree.insert(folder, "end", text=dst_name)
 
-        convertCopyObj.end()
-        enterSourceObj.begin()
-        enterSourceObj.add(enterSourceObj.tree)
-        enterSourceObj.add(enterSourceObj.writeMusicB)
 
-    def back(self):
-        convertCopyObj.end()
-        enterSourceObj.begin()
-
-    def callback(self, event):
-        master.path = enterSourceObj.entryForFolder.get()
-        self.doAfterEnterPath()
-
-    def firstCallback(self, event):
-        dest = enterDestObj.entryForDest.get()
-        if os.path.isdir(dest):
-            master.dest = dest
-            self.doAfterSelectDest()
-        else:
-            enterDestObj.entryForDest.delete(0, 'end')
-            enterDestObj.add(enterDestObj.notValidDestLabel)
 
     def doAfterEnterPath(self):
         haveToConvert = False
@@ -139,7 +130,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             enterSourceObj.clearField()
 
     def selectFolder(self):
-        master.path =  filedialog.askdirectory(initialdir = "/")
+        self.path =  filedialog.askdirectory(initialdir = "/")
         self.doAfterEnterPath()
 
     def applyCards(self):
@@ -189,8 +180,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                         tree.item(folders[i], tags=('active'))
                     
                     
-    def selectDestFolder(self):
-        master.dest =  filedialog.askdirectory(initialdir = "/")
+    def selectDestFolder(self, event):
+        self.dest = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "select directory",
+            os.path.dirname(os.path.abspath(__file__)), 
+            '*.mp3')
         self.doAfterSelectDest()
 
     def createDestFolder(self):
@@ -206,8 +201,16 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 new_name = full_path + str(i)
             os.mkdir(new_name)
             full_path = new_name
-        master.dest = full_path
+        self.dest = full_path
         self.doAfterSelectDest()
+
+    def typeDestFolder(self):
+        dest = self.LinePath1.text()
+        if os.path.isdir(dest):
+            self.dest = dest
+            self.doAfterSelectDest()
+        else:
+            self.LinePath1.clear()
 
     def doAfterSelectDest(self):
         enterDestObj.end()
@@ -254,123 +257,10 @@ def resource_path(relative):
 def main():
     setup_exception_logging()
     app = QtWidgets.QApplication(sys.argv)
-    window = SphereUi()
+    window = ShadowUi()
     window.show()
     app.exec_()
 
 
 if __name__ == '__main__':
     main()
-
-
-
-FRAMERATE = 48000
-SAMPLEWIDTH = 2 #2 bytes == 16 bits
-SAMPLEFMT = 's16' #ffmpeg format
-
-master = Tk()
-master.geometry('500x600')
-tree=ttk.Treeview(master)
-tree.tag_configure('active', foreground='#FFFFFF', background='#1111FF')
-
-class WindowState:
-    initWidgets = []
-    nowWidgets = []
-
-    def begin(self):
-        for widget in self.initWidgets:
-            widget.pack()
-        self.nowWidgets += self.initWidgets
-
-    def end(self):
-        for widget in self.nowWidgets:
-            widget.pack_forget()
-        self.nowWidgets = []
-
-    def add(self, widget):
-        widget.pack()
-        self.nowWidgets.append(widget)
-
-    def addTop(self, widget):
-        widget.pack()
-        self.nowWidgets = [widget] + self.nowWidgets
-
-
-class EnterDest(WindowState):
-    def __init__(self):
-        self.createDestB = Button(master, text="Создать папку для записи музыки", width=30, command=createDestFolder)
-        self.entryForDest = Entry(master)
-        self.entryForDest.bind('<Return>', firstCallback)
-        self.selectDestB = Button(master, text="Выбрать папку для записи музыки", width=30, command=selectDestFolder)
-        self.enterDestLabel = Label(master, text="\nИЛИ\nВведите путь к папке", justify=CENTER)
-        self.notValidDestLabel = Label(master, text="Некорректный путь", foreground='#EE0000')
-        self.initWidgets = [self.createDestB, self.selectDestB, self.enterDestLabel, self.entryForDest]
-
-    def begin(self):
-        WindowState.begin(self)
-        self.entryForDest.focus_set()
-
-class EnterSource(WindowState):
-    def __init__(self):
-        self.entryForFolder = Entry(master)
-        self.entryForFolder.bind('<Return>', callback)
-        self.selectFolderB = Button(master, text="Выбрать исходную папку с музыкой", width=30, command=selectFolder)
-        self.enterPathLabel = Label(master, text="\nИЛИ\nВведите путь к папке", justify=CENTER)
-        self.notValidPathLabel = Label(master, text="Некорректный путь", foreground='#EE0000')
-        self.tree = tree
-        self.writeMusicB = Button(master, text='Соотнести музыку с карточками', width=30, command=applyCards)
-        self.initWidgets = [self.selectFolderB, self.enterPathLabel, self.entryForFolder]
-
-    def begin(self):
-        WindowState.begin(self)
-        self.entryForFolder.focus_set()
-
-    def end(self):
-        WindowState.end(self)
-        self.entryForFolder.delete(0, 'end')
-
-    def clearField(self):
-        self.entryForFolder.delete(0, 'end')
-
-class WriteMusic(WindowState):
-    def __init__(self):
-        self.folder_names = []
-        self.folders_in_tree = []
-        self.tree = tree
-        self.initWidgets = [tree]
-
-class ConvertCopy(WindowState):
-    def __init__(self):
-        self.currentfolder=ttk.Treeview(master)
-        self.currentfolder.tag_configure('red', foreground='#EE0000')
-        self.currentfolder.tag_configure('grey', foreground='#888888')
-        self.convB = Button(master, text="конвертировать", width=15, command=lambda : convertOrCopy(convert))
-        self.copyB = Button(master, text="копировать только подходящие", width=30, command=lambda : convertOrCopy(copyOnly))
-        self.backB = Button(master, text="назад", width=10, command=back)
-        self.convertOrCopyLabel = Label(master, text="Есть файлы в неподходящем формате (выделены красным). Конвертировать?")
-        self.initWidgets = [self.backB, self.currentfolder]
-
-    def end(self):
-        WindowState.end(self)
-        self.currentfolder.delete(*self.currentfolder.get_children())
-
-
-
-class FileFormat(Enum):
-    notMusic = 1
-    good = 2
-    bad = 3
-
-
-
-
-######################################
-
-enterDestObj = EnterDest()
-enterSourceObj = EnterSource()
-writeMusicObj = WriteMusic()
-convertCopyObj = ConvertCopy()
-
-
-enterDestObj.begin()
-mainloop()
