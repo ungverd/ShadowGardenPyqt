@@ -164,7 +164,6 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
 
     def convert(self, src, dst):
-        print("convert")
         res = self.classifyDict[src]
         if res == FileFormat.good:
             if src != dst:
@@ -179,7 +178,6 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 return False
 
     def copyOnly(self, src, dst):
-        print("copyOnly")
         if self.classifyDict[src] == FileFormat.good:
             if src != dst:
                 copyfile(src, dst)
