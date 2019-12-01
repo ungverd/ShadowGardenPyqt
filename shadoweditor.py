@@ -21,6 +21,10 @@ FRAMERATE = 48000
 SAMPLEWIDTH = 2 #2 bytes == 16 bits
 SAMPLEFMT = 's16' #ffmpeg format
 
+BLACK = (0, 0, 0)
+RED = (200, 0, 0)
+GRAY = (100, 100, 100)
+
 class FileFormat(Enum):
     notMusic = 1
     good = 2
@@ -34,6 +38,114 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnCreate1.clicked.connect(self.createDestFolder)
         self.BtnChoose1.clicked.connect(self.selectDestFolder)
         self.LinePath1.editingFinished.connect(self.typeDestFolder)
+        self.BtnChoose2.clicked.connect(self.selectFolder)
+        self.LinePath2.editingFinished.connect(self.typeFolder)
+        self.filesInFolder = QtGui.QStandardItemModel()
+        self.LstFiles.setModel(self.filesInFolder)
+        self.foldersInFolder = QtGui.QStandardItemModel()
+        self.LstDirs.setModel(self.foldersInFolder)
+        self.BtnConvert.clicked.connect(lambda : self.convertOrCopy(self.convert))
+        self.BtnSkip.clicked.connect(lambda : self.convertOrCopy(self.copyOnly))
+        self.folder_names = []
+
+
+    def selectDestFolder(self, event):
+        dest = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "select directory",
+            os.path.dirname(os.path.abspath(__file__)))
+        if dest:
+            self.dest = dest
+            self.doAfterSelectDest()
+
+    def createDestFolder(self):
+        cur_path = os.getcwd()
+        full_path = os.path.join(cur_path, "new")
+        if not os.path.isdir(full_path):
+            os.mkdir(full_path)
+        else:
+            i = 1
+            new_name = full_path + str(i)
+            while os.path.isdir(new_name):
+                i += 1
+                new_name = full_path + str(i)
+            os.mkdir(new_name)
+            full_path = new_name
+        self.dest = full_path
+        self.doAfterSelectDest()
+
+    def typeDestFolder(self):
+        dest = self.LinePath1.text()
+        if os.path.isdir(dest):
+            self.dest = dest
+            self.doAfterSelectDest()
+        else:
+            self.LinePath1.clear()
+
+    def doAfterSelectDest(self):
+        self.BtnCreate1.hide()
+        self.BtnChoose1.hide()
+        self.LinePath1.hide()
+        self.LblDest = QtWidgets.QLabel(self.centralwidget)
+        font = QtGui.QFont()
+        font.setPointSize(10)
+        self.LblDest.setFont(font)
+        self.LblDest.setObjectName("LblDest")
+        self.gridLayout.addWidget(self.LblDest, 3, 1, 1, 1)
+        _translate = QtCore.QCoreApplication.translate
+        self.LblDest.setText(_translate("LblDest", "Запись ведется в папку %s" % self.dest))
+
+    def selectFolder(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(
+            self,
+            "select directory",
+            os.path.dirname(os.path.abspath(__file__)))
+        if path:
+            self.path = path
+            self.doAfterEnterPath()
+
+
+    def typeFolder(self):
+        path = self.LinePath2.text()
+        if os.path.isdir(path):
+            self.path = path
+            self.doAfterEnterPath()
+        else:
+            self.LinePath2.clear()
+
+
+    def insertItemWithColor(self, text, color):
+        item = QtGui.QStandardItem(text)
+        item.setForeground(QtGui.QBrush(QtGui.QColor(*color)))
+        self.filesInFolder.appendRow(item)
+
+        
+    def doAfterEnterPath(self):
+        self.filesInFolder.clear()
+        haveToConvert = False
+        haveToCopy = False #можно делать активной только имеющую смысл кнопку
+        try:
+            self.classifyDict = {}
+            for filename in os.listdir(self.path):
+                src = os.path.join(self.path, filename)
+                res = self.classifyFile(src)
+                self.classifyDict[src] = res
+                if res == FileFormat.good:
+                    self.insertItemWithColor(filename, BLACK)
+                    haveToCopy = True
+                elif res == FileFormat.notMusic:
+                    self.insertItemWithColor(filename, GRAY)
+                else:
+                    self.insertItemWithColor(filename, RED)
+                    haveToConvert = True
+
+            self.BtnConvert.setEnabled(haveToConvert)
+            self.BtnSkip.setEnabled(haveToCopy)
+
+        except (FileNotFoundError, OSError):
+            error_message("ошибка открытия файла")
+
+
         
     def classifyFile(self, path):
         if len(path) >= 4:
@@ -41,18 +153,19 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 return FileFormat.bad
             elif path[-4:] == ".wav":
                 try:
-                    sound = wave.open(path, mode='rb')
-                    if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
-                        return FileFormat.good
-                    else:
-                        return FileFormat.bad
+                    with wave.open(path, mode='rb') as sound:
+                        if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
+                            return FileFormat.good
+                        else:
+                            return FileFormat.bad
                 except wave.Error:
                     return FileFormat.notMusic
         return FileFormat.notMusic
 
 
     def convert(self, src, dst):
-        res = self.classifyFile(src)
+        print("convert")
+        res = self.classifyDict[src]
         if res == FileFormat.good:
             if src != dst:
                 copyfile(src, dst)
@@ -66,16 +179,17 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 return False
 
     def copyOnly(self, src, dst):
-        if self.classifyFile(src) == FileFormat.good:
+        print("copyOnly")
+        if self.classifyDict[src] == FileFormat.good:
             if src != dst:
                 copyfile(src, dst)
             return True
 
 
     def convertOrCopy(self, func):
-        src_path = master.path
+        src_path = self.path
         basename = os.path.basename(src_path)
-        full_dest = os.path.join(master.dest, basename)
+        full_dest = os.path.join(self.dest, basename)
         if not os.path.isdir(full_dest):
             os.mkdir(full_dest)
         else:
@@ -87,55 +201,18 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             os.mkdir(new_name)
             full_dest = new_name
             basename = os.path.basename(full_dest)
-        writeMusicObj.folder_names.append(basename)
-        folder = enterSourceObj.tree.insert("", 'end', text=basename)
-        writeMusicObj.folders_in_tree.append(folder)
+        self.LstDirs
+        self.folder_names.append(basename)
+        self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
+
         for filename in os.listdir(src_path):
             src = os.path.join(src_path, filename)
             dst_name = filename[:-4] + ".wav"
             dst = os.path.join(full_dest, dst_name)
-            if func(src, dst):
-                enterSourceObj.tree.insert(folder, "end", text=dst_name)
+            func(src, dst) #возвращает true, если это был подходящий файл, и false, если нет
 
-
-
-    def doAfterEnterPath(self):
-        haveToConvert = False
-        haveToCopy = False
-        try:
-            for filename in os.listdir(master.path):
-                src = os.path.join(master.path, filename)
-                res = self.classifyFile(src)
-                if res == FileFormat.good:
-                    convertCopyObj.currentfolder.insert("", 'end', text=filename)
-                    haveToCopy = True
-                elif res == FileFormat.notMusic:
-                    convertCopyObj.currentfolder.insert("", 'end', text=filename, tags = ('grey',))
-                else:
-                    convertCopyObj.currentfolder.insert("", 'end', text=filename, tags = ('red',))
-                    haveToConvert = True
-
-            enterSourceObj.end()
-
-            if haveToConvert:
-                convertCopyObj.addTop(convertCopyObj.convertOrCopyLabel)
-                convertCopyObj.addTop(convertCopyObj.convB)
-            if haveToCopy:
-                convertCopyObj.addTop(convertCopyObj.copyB)
-
-            convertCopyObj.begin()
-
-        except (FileNotFoundError, OSError):
-            enterSourceObj.add(enterSourceObj.notValidPathLabel)
-            enterSourceObj.clearField()
-
-    def selectFolder(self):
-        self.path =  filedialog.askdirectory(initialdir = "/")
-        self.doAfterEnterPath()
 
     def applyCards(self):
-        enterSourceObj.end()
-        writeMusicObj.begin()
         gen = self.contextGen()
         gen.send(None)
         master.after_idle(self.recursive, gen, 0)
@@ -179,42 +256,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                     if i < len(names):
                         tree.item(folders[i], tags=('active'))
                     
-                    
-    def selectDestFolder(self, event):
-        self.dest = QtWidgets.QFileDialog.getExistingDirectory(
-            self,
-            "select directory",
-            os.path.dirname(os.path.abspath(__file__)), 
-            '*.mp3')
-        self.doAfterSelectDest()
 
-    def createDestFolder(self):
-        cur_path = os.getcwd()
-        full_path = os.path.join(cur_path, "new")
-        if not os.path.isdir(full_path):
-            os.mkdir(full_path)
-        else:
-            i = 1
-            new_name = full_path + str(i)
-            while os.path.isdir(new_name):
-                i += 1
-                new_name = full_path + str(i)
-            os.mkdir(new_name)
-            full_path = new_name
-        self.dest = full_path
-        self.doAfterSelectDest()
-
-    def typeDestFolder(self):
-        dest = self.LinePath1.text()
-        if os.path.isdir(dest):
-            self.dest = dest
-            self.doAfterSelectDest()
-        else:
-            self.LinePath1.clear()
-
-    def doAfterSelectDest(self):
-        enterDestObj.end()
-        enterSourceObj.begin()
 
 def error_message(text):
     """
