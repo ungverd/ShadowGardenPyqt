@@ -6,7 +6,7 @@ import wave
 import csv
 import subprocess
 
-import serial
+#import serial
 
 #import Usbhost
 
@@ -25,12 +25,42 @@ BLACK = (0, 0, 0)
 RED = (200, 0, 0)
 GRAY = (100, 100, 100)
 
+######### EMULATION WITH KEYS ##################################
+
+class Usbhost:
+    @staticmethod
+    def get_device_port():
+        return 500
+
+class serial:
+    class Serial(QtWidgets.QWidget):
+        def __init__(self, *args, **kwargs):
+            self.i = 0
+            self.values = []
+        def __enter__(self):
+            return self
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+        def readall(self):
+            res = b'\r'.join(b'Card: 1234 %i' % i for i in self.values)
+            self.values = []
+            return res
+
+##################################################################
+
 class FileFormat(Enum):
     notMusic = 1
     good = 2
     bad = 3
 
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
+
+    ################################ EMULATION WITH KEYS ##################################
+    def keyPressEvent(self, e):
+        if hasattr(self, 'ser'):
+            self.ser.values.append(self.ser.i)
+            self.ser.i += 1
+    ##########################################################################################
 
     def __init__(self):
         super().__init__()
@@ -47,6 +77,9 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnConvert.clicked.connect(lambda : self.convertOrCopy(self.convert))
         self.BtnSkip.clicked.connect(lambda : self.convertOrCopy(self.copyOnly))
         self.folder_names = []
+        self.timer = QtCore.QTimer()
+        self.BtnCards.clicked.connect(self.applyCards)
+
 
 
     def selectDestFolder(self, event):
@@ -121,7 +154,6 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
         
     def doAfterEnterPath(self):
-        self.filesInFolder.clear()
         haveToConvert = False
         haveToCopy = False #можно делать активной только имеющую смысл кнопку
         try:
@@ -199,7 +231,6 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             os.mkdir(new_name)
             full_dest = new_name
             basename = os.path.basename(full_dest)
-        self.LstDirs
         self.folder_names.append(basename)
         self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
 
@@ -208,52 +239,52 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             dst_name = filename[:-4] + ".wav"
             dst = os.path.join(full_dest, dst_name)
             func(src, dst) #возвращает true, если это был подходящий файл, и false, если нет
+        
+        self.filesInFolder.clear()
+        self.BtnCards.setEnabled(True)
+
+
+    def timertick(self):
+        try:
+            next(self.gen)
+        except StopIteration:
+            pass
 
 
     def applyCards(self):
-        gen = self.contextGen()
-        gen.send(None)
-        master.after_idle(self.recursive, gen, 0)
+        self.color_next_dir(-1)
+        self.gen = self.timertick_gen()
+        self.timer.timeout.connect(self.timertick)
+        self.timer.start(1)
 
 
-    def recursive(self, gen, i):
-        res = gen.send(i)
-        if i <= len(writeMusicObj.folder_names):
-            if res:
-                master.after_idle(self.recursive, gen, i+1)
-            else:
-                master.after_idle(self.recursive, gen, i)
-
-    def contextGen(self):
-        tree = writeMusicObj.tree
-        names = writeMusicObj.folder_names
-        folders = writeMusicObj.folders_in_tree
+    def timertick_gen(self):
+        i = 0
         port = Usbhost.get_device_port()
-        with serial.Serial(port, baudrate=115200, timeout=0.1) as ser:
-            with open(os.path.join(master.dest, 'folders.csv'), 'w', newline='') as csvfile:
+        with serial.Serial(port, baudrate=115200, timeout=0.1) as self.ser:
+            with open(os.path.join(self.dest, 'folders.csv'), 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile, dialect='excel')
                 previous = ""
-                while True:
-                    i = yield(True)
-                    if i > 0 and i <= len(names):
-                        name = names[i-1]
-                        folder = folders[i-1]
+                while i < len(self.folder_names):
+                    answer = self.ser.readall().decode('utf-8').split('\r')
+                    for line in answer:
+                        if line.startswith("Card: ") and line != previous and i < len(self.folder_names):
+                            previous = line
+                            words = line.split(" ")
+                            writer.writerow([words[1], words[2], self.folder_names[i]])
+                            self.color_next_dir(i)
+                            i += 1
+                    yield
+        self.timer.stop()
 
-                        done = False
-                        while not done:
-                            answer = ser.readall().decode('utf-8').split('\r')
-                            _ = yield(False)
-                            for line in answer:
-                                if line.startswith("Card: ") and line != previous:
-                                    previous = line
-                                    words = line.split(" ")
-                                    writer.writerow([words[1], words[2], name])
-                                    done = True
 
-                        tree.item(folder, tags=())
-                    if i < len(names):
-                        tree.item(folders[i], tags=('active'))
-                    
+    def color_next_dir(self, i):
+        white = QtGui.QBrush(QtGui.QColor(255, 255, 255))
+        blue = QtGui.QBrush(QtGui.QColor(200, 200, 255))
+        if i >= 0:
+            self.foldersInFolder.item(i).setBackground(white)
+        if i + 1 < self.foldersInFolder.rowCount():
+            self.foldersInFolder.item(i + 1).setBackground(blue)
 
 
 def error_message(text):
