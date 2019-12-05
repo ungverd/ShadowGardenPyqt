@@ -2,18 +2,16 @@
 
 # Form implementation generated from reading ui file 'main.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
-
 from PyQt5 import QtCore, QtGui, QtWidgets
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(591, 661)
+        MainWindow.resize(591, 688)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -86,7 +84,7 @@ class Ui_MainWindow(object):
         self.gridLayout.addWidget(self.LblFiles, 9, 1, 1, 1)
         self.LstDirs = QtWidgets.QListView(self.centralwidget)
         self.LstDirs.setObjectName("LstDirs")
-        self.gridLayout.addWidget(self.LstDirs, 15, 1, 1, 1)
+        self.gridLayout.addWidget(self.LstDirs, 15, 1, 1, 2)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 591, 26))
@@ -114,7 +112,8 @@ class Ui_MainWindow(object):
         self.BtnCards.setText(_translate("MainWindow", "Начать соотносить"))
         self.LblPath2.setText(_translate("MainWindow", "Или введите путь до папки"))
         self.LblFormat.setText(_translate("MainWindow", "Для справки: подходящий формат wav, 16бит, частота 48000 "))
-        self.LblStep3.setText(_translate("MainWindow", "Шаг2. Соотнести с карточками"))
+        self.LblStep3.setText(_translate("MainWindow", "Шаг3. Соотнести с карточками"))
         self.LblStep2.setText(_translate("MainWindow", "Шаг2. Выбор папки с музыкой"))
         self.LblPath1.setText(_translate("MainWindow", "ИЛИ введите путь до папки"))
         self.LblFiles.setText(_translate("MainWindow", "Файлы в папке:"))
+

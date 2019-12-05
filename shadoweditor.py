@@ -7,7 +7,6 @@ import csv
 import subprocess
 
 #import serial
-
 #import Usbhost
 
 from PyQt5 import QtCore, QtGui, QtWidgets
@@ -18,8 +17,8 @@ import ui
 _translate = QtCore.QCoreApplication.translate
 
 FRAMERATE = 48000
-SAMPLEWIDTH = 2 #2 bytes == 16 bits
-SAMPLEFMT = 's16' #ffmpeg format
+SAMPLEWIDTH = 2  # 2 bytes == 16 bits
+SAMPLEFMT = 's16'  # ffmpeg format
 
 BLACK = (0, 0, 0)
 RED = (200, 0, 0)
@@ -27,20 +26,25 @@ GRAY = (100, 100, 100)
 
 ######### EMULATION WITH KEYS ##################################
 
+
 class Usbhost:
     @staticmethod
     def get_device_port():
         return 500
+
 
 class serial:
     class Serial(QtWidgets.QWidget):
         def __init__(self, *args, **kwargs):
             self.i = 0
             self.values = []
+
         def __enter__(self):
             return self
+
         def __exit__(self, exc_type, exc_val, exc_tb):
             pass
+
         def readall(self):
             res = b'\r'.join(b'Card: 1234 %i' % i for i in self.values)
             self.values = []
@@ -48,10 +52,12 @@ class serial:
 
 ##################################################################
 
+
 class FileFormat(Enum):
     notMusic = 1
     good = 2
     bad = 3
+
 
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 

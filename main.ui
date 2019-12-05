@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>591</width>
-    <height>661</height>
+    <height>688</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -123,7 +123,7 @@
        </font>
       </property>
       <property name="text">
-       <string>Шаг2. Соотнести с карточками</string>
+       <string>Шаг3. Соотнести с карточками</string>
       </property>
      </widget>
     </item>
@@ -153,7 +153,7 @@
       </property>
      </widget>
     </item>
-    <item row="15" column="1">
+    <item row="15" column="1" colspan="2">
      <widget class="QListView" name="LstDirs"/>
     </item>
    </layout>
