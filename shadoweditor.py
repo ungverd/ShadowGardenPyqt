@@ -158,7 +158,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         item.setForeground(QtGui.QBrush(QtGui.QColor(*color)))
         self.filesInFolder.appendRow(item)
 
-        
+
     def doAfterEnterPath(self):
         haveToConvert = False
         haveToCopy = False #можно делать активной только имеющую смысл кнопку
@@ -184,7 +184,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             error_message("ошибка открытия файла")
 
 
-        
+
     def classifyFile(self, path):
         if len(path) >= 4:
             if path[-4:] in (".mp3", ".oog"):
@@ -245,9 +245,11 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             dst_name = filename[:-4] + ".wav"
             dst = os.path.join(full_dest, dst_name)
             func(src, dst) #возвращает true, если это был подходящий файл, и false, если нет
-        
+
         self.filesInFolder.clear()
         self.BtnCards.setEnabled(True)
+        self.BtnConvert.setEnabled(False)
+        self.BtnSkip.setEnabled(False)
 
 
     def timertick(self):
