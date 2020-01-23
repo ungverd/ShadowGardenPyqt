@@ -5,9 +5,9 @@ from enum import Enum
 import wave
 import csv
 import subprocess
-
-#import serial
-#import Usbhost
+from typing import List, Dict
+# import serial
+# import Usbhost
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from loguru import logger
@@ -24,9 +24,8 @@ BLACK = (0, 0, 0)
 RED = (200, 0, 0)
 GRAY = (100, 100, 100)
 
-######### EMULATION WITH KEYS ##################################
 
-
+# EMULATION WITH KEYS
 class Usbhost:
     @staticmethod
     def get_device_port():
@@ -35,9 +34,9 @@ class Usbhost:
 
 class serial:
     class Serial(QtWidgets.QWidget):
-        def __init__(self, *args, **kwargs):
+        def __init__(self):
             self.i = 0
-            self.values = []
+            self.values = list()
 
         def __enter__(self):
             return self
@@ -49,55 +48,75 @@ class serial:
             res = b'\r'.join(b'Card: 1234 %i' % i for i in self.values)
             self.values = []
             return res
-
-##################################################################
+# end of emulation
 
 
 class FileFormat(Enum):
-    notMusic = 1
-    good = 2
-    bad = 3
+    NOT_MUSIC = 1
+    CORRECT = 2
+    INCORRECT = 3
+
+
+class State(Enum):
+    NOTHING_SELECTED = 1
+    DEST_SELECTED = 2
+    SOURCE_SELECTED = 3
 
 
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
-    ################################ EMULATION WITH KEYS ##################################
+    #  EMULATION WITH KEYS #
     def keyPressEvent(self, e):
         if hasattr(self, 'ser'):
             self.ser.values.append(self.ser.i)
             self.ser.i += 1
-    ##########################################################################################
+    # END OF EMULATION
 
     def __init__(self):
         super().__init__()
+        self.state: State = State.NOTHING_SELECTED
         self.setupUi(self)
-        self.BtnCreate1.clicked.connect(self.createDestFolder)
-        self.BtnChoose1.clicked.connect(self.selectDestFolder)
-        self.LinePath1.editingFinished.connect(self.typeDestFolder)
-        self.BtnChoose2.clicked.connect(self.selectFolder)
-        self.LinePath2.editingFinished.connect(self.typeFolder)
+        self.BtnCreateDest.clicked.connect(self.create_dest_folder)
+        self.BtnChooseDest.clicked.connect(self.select_folder)
+        self.LinePathDest.editingFinished.connect(self.type_folder)
+        self.BtnChooseSource.clicked.connect(self.select_folder)
+        self.BtnConvert.clicked.connect(lambda: self.convertOrCopy(self.convert))
+        self.BtnSkip.clicked.connect(lambda: self.convertOrCopy(self.copyOnly))
+        self.LinePathSource.editingFinished.connect(self.type_folder)
+
+        self.folder_names: List[str] = list()
+        self.dest: str = ""
+        self.source: str = ""
+        self.classify_dict: Dict[str, FileFormat] = dict()
         self.filesInFolder = QtGui.QStandardItemModel()
         self.LstFiles.setModel(self.filesInFolder)
         self.foldersInFolder = QtGui.QStandardItemModel()
         self.LstDirs.setModel(self.foldersInFolder)
-        self.BtnConvert.clicked.connect(lambda : self.convertOrCopy(self.convert))
-        self.BtnSkip.clicked.connect(lambda : self.convertOrCopy(self.copyOnly))
-        self.folder_names = []
+
         self.timer = QtCore.QTimer()
         self.BtnCards.clicked.connect(self.applyCards)
 
+    def select_folder(self):
+        """
+        selects and returns folder and calls ui function
+        :return:
+        """
+        sender = self.sender()
+        path_field, ui_function = (self.dest, self.select_dest_ui) if sender == self.BtnChooseDest \
+            else (self.source, self.select_target_ui_and_convert)
+        title = "Выберите папку"
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, title, os.path.dirname(os.path.abspath(__file__)))
+        # ui_function = self.select_dest_ui if sender == self. BtnChoose1 else self.doAfterEnterPath
+        if folder:
+            path_field = folder
+            ui_function()
 
-
-    def selectDestFolder(self, event):
-        dest = QtWidgets.QFileDialog.getExistingDirectory(
-            self,
-            "select directory",
-            os.path.dirname(os.path.abspath(__file__)))
-        if dest:
-            self.dest = dest
-            self.doAfterSelectDest()
-
-    def createDestFolder(self):
+    def create_dest_folder(self):
+        """
+        creates new folder in current folder and writes it name to dest field.
+        If New name is already used, nes folder's name is 'New1" etc
+        :return:
+        """
         cur_path = os.getcwd()
         full_path = os.path.join(cur_path, "new")
         if not os.path.isdir(full_path):
@@ -111,95 +130,69 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             os.mkdir(new_name)
             full_path = new_name
         self.dest = full_path
-        self.doAfterSelectDest()
+        self.select_dest_ui()
 
-    def typeDestFolder(self):
-        dest = self.LinePath1.text()
-        if os.path.isdir(dest):
-            self.dest = dest
-            self.doAfterSelectDest()
-        else:
-            self.LinePath1.clear()
+    def type_folder(self):
+        """
+        writes manually added path to dist/source field and calls corresponding ui function
+        """
+        sender = self.sender()
+        path_param, ui_function = (self.dest, self.select_dest_ui) if sender == self.LinePathDest \
+            else (self.path, self.select_target_ui_and_convert)
+        path_param = os.path.split(sender.text())[0]
+        ui_function()
 
-    def doAfterSelectDest(self):
-        self.BtnCreate1.hide()
-        self.BtnChoose1.hide()
-        self.LinePath1.hide()
-        self.LblDest = QtWidgets.QLabel(self.centralwidget)
-        font = QtGui.QFont()
-        font.setPointSize(10)
-        self.LblDest.setFont(font)
-        self.LblDest.setObjectName("LblDest")
-        self.gridLayout.addWidget(self.LblDest, 3, 1, 1, 1)
-        _translate = QtCore.QCoreApplication.translate
-        self.LblDest.setText(_translate("LblDest", "Запись ведется в папку %s" % self.dest))
+    def select_dest_ui(self):
+        """
+        makes ui for state "destination folder selected"
+        :return:
+        """
+        self.source = ""
+        self.classify_dict = dict()
+        self.state = State.DEST_SELECTED
+        self.LinePathSource.clear()
+        self.filesInFolder.clear()
+        self.BtnConvert.setEnabled(False)
+        self.BtnSkip.setEnabled(False)
+        self.foldersInFolder.clear()
+        self.BtnCards.setEnabled(False)
+        self.LblDest.setText("Выбрана папка: %s" % self.dest)
+        self.LblSource.setText("Выбрана папка:")
 
-    def selectFolder(self):
-        path = QtWidgets.QFileDialog.getExistingDirectory(
-            self,
-            "select directory",
-            os.path.dirname(os.path.abspath(__file__)))
-        if path:
-            self.path = path
-            self.doAfterEnterPath()
-
-
-    def typeFolder(self):
-        path = self.LinePath2.text()
-        if os.path.isdir(path):
-            self.path = path
-            self.doAfterEnterPath()
-        else:
-            self.LinePath2.clear()
-
-
-    def insertItemWithColor(self, text, color):
+    def insert_item_with_color(self, text: str, color):
+        """
+        addds coloured item
+        :param text: text for item
+        :param color: color for item
+        :return:
+        """
         item = QtGui.QStandardItem(text)
         item.setForeground(QtGui.QBrush(QtGui.QColor(*color)))
         self.filesInFolder.appendRow(item)
 
-
-    def doAfterEnterPath(self):
-        haveToConvert = False
-        haveToCopy = False #можно делать активной только имеющую смысл кнопку
-        try:
-            self.classifyDict = {}
-            for filename in os.listdir(self.path):
-                src = os.path.join(self.path, filename)
-                res = self.classifyFile(src)
-                self.classifyDict[src] = res
+    def select_target_ui_and_convert(self):
+        """
+        scans all files in selected folder and adds them to file list
+        correct files have black font color, not sound files have gray font color and sound files with incorrect format
+        have red colour and we may convert them
+        :return:
+        """
+        for filename in os.listdir(self.source):
+            src: str = os.path.join(self.path, filename)
+            try:
+                res = self.check_file_format(src)
+                self.classify_dict[src] = res
                 if res == FileFormat.good:
-                    self.insertItemWithColor(filename, BLACK)
-                    haveToCopy = True
+                    self.insert_item_with_color(filename, BLACK)
+                    self.BtnSkip.setEnabled(True)
                 elif res == FileFormat.notMusic:
-                    self.insertItemWithColor(filename, GRAY)
+                    self.insert_item_with_color(filename, GRAY)
                 else:
-                    self.insertItemWithColor(filename, RED)
-                    haveToConvert = True
-
-            self.BtnConvert.setEnabled(haveToConvert)
-            self.BtnSkip.setEnabled(haveToCopy)
-
-        except (FileNotFoundError, OSError):
-            error_message("ошибка открытия файла")
-
-
-
-    def classifyFile(self, path):
-        if len(path) >= 4:
-            if path[-4:] in (".mp3", ".oog"):
-                return FileFormat.bad
-            elif path[-4:] == ".wav":
-                try:
-                    with wave.open(path, mode='rb') as sound:
-                        if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
-                            return FileFormat.good
-                        else:
-                            return FileFormat.bad
-                except wave.Error:
-                    return FileFormat.notMusic
-        return FileFormat.notMusic
-
+                    self.insert_item_with_color(filename, RED)
+                    self.BtnConvert.setEnabled(True)
+            except (FileNotFoundError, OSError):
+                error_message("ошибка открытия файла %s" % src)
+                continue
 
     def convert(self, src, dst):
         res = self.classifyDict[src]
@@ -269,7 +262,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
     def timertick_gen(self):
         i = 0
         port = Usbhost.get_device_port()
-        with serial.Serial(port, baudrate=115200, timeout=0.1) as self.ser:
+        with Serial.Serial(port, baudrate=115200, timeout=0.1) as self.ser:
             with open(os.path.join(self.dest, 'folders.csv'), 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile, dialect='excel')
                 previous = ""
@@ -293,6 +286,26 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             self.foldersInFolder.item(i).setBackground(white)
         if i + 1 < self.foldersInFolder.rowCount():
             self.foldersInFolder.item(i + 1).setBackground(blue)
+
+
+def check_file_format(path):
+    """
+    checks if file is soundfile and correct
+    :param path: path to file
+    :return:  FileFormat.NOT_MUSIC for not sound files, FileFormat.INCORRECT for not .wav or incorrect
+    samplewidth or incorrect framerate
+    """
+    if os.path.splitext(path)[1] in (".mp3", ".oog"):
+        return FileFormat.INCORRECT
+    if os.path.splitext(path)[1] == ".wav":
+        try:
+            with wave.open(path, mode='rb') as sound:
+                if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
+                    return FileFormat.CORRECT
+                return FileFormat.INCORRECT
+        except wave.Error:
+            return FileFormat.NOT_MUSIC
+    return FileFormat.NOT_MUSIC
 
 
 def error_message(text):
