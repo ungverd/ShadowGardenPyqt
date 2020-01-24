@@ -61,6 +61,7 @@ class State(Enum):
     NOTHING_SELECTED = 1
     DEST_SELECTED = 2
     SOURCE_SELECTED = 3
+    FILES_READY = 4
 
 
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
@@ -78,11 +79,11 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.setupUi(self)
         self.BtnCreateDest.clicked.connect(self.create_dest_folder)
         self.BtnChooseDest.clicked.connect(self.select_folder)
-        self.LinePathDest.editingFinished.connect(self.type_folder)
+        self.LinePathDest.editingFinished.connect(self.get_folder_from_field)
         self.BtnChooseSource.clicked.connect(self.select_folder)
-        self.BtnConvert.clicked.connect(lambda: self.convertOrCopy(self.convert))
-        self.BtnSkip.clicked.connect(lambda: self.convertOrCopy(self.copyOnly))
-        self.LinePathSource.editingFinished.connect(self.type_folder)
+        self.BtnConvert.clicked.connect(lambda: self.process_files(self.copy_and_convert))
+        self.BtnSkip.clicked.connect(lambda: self.process_files(self.copyOnly))
+        self.LinePathSource.editingFinished.connect(self.get_folder_from_field)
 
         self.folder_names: List[str] = list()
         self.dest: str = ""
@@ -102,13 +103,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         sender = self.sender()
-        path_field, ui_function = (self.dest, self.select_dest_ui) if sender == self.BtnChooseDest \
-            else (self.source, self.select_target_ui_and_convert)
+        (ui_function, folder_field) = (self.select_dest_ui, 'dest') if sender == self.BtnChooseDest \
+            else (self.select_target_ui_and_convert, 'source')
         title = "Выберите папку"
         folder = QtWidgets.QFileDialog.getExistingDirectory(self, title, os.path.dirname(os.path.abspath(__file__)))
-        # ui_function = self.select_dest_ui if sender == self. BtnChoose1 else self.doAfterEnterPath
         if folder:
-            path_field = folder
+            setattr(self, folder_field, folder)
             ui_function()
 
     def create_dest_folder(self):
@@ -132,15 +132,20 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.dest = full_path
         self.select_dest_ui()
 
-    def type_folder(self):
+    def get_folder_from_field(self):
         """
         writes manually added path to dist/source field and calls corresponding ui function
         """
         sender = self.sender()
-        path_param, ui_function = (self.dest, self.select_dest_ui) if sender == self.LinePathDest \
-            else (self.path, self.select_target_ui_and_convert)
-        path_param = os.path.split(sender.text())[0]
-        ui_function()
+        folder = sender.text()
+        ui_function, field_folder = (self.select_dest_ui, 'dest') if sender == self.LinePathDest \
+            else (self.select_target_ui_and_convert, 'source')
+        if os.path.exists(folder):
+            result_path = folder if os.path.isdir(folder) else os.path.split(folder)[0]
+            setattr(self, field_folder,result_path)
+            ui_function()
+        elif sender.text():
+            error_message("Выбранной папки не существует")
 
     def select_dest_ui(self):
         """
@@ -150,6 +155,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.source = ""
         self.classify_dict = dict()
         self.state = State.DEST_SELECTED
+        self.BtnChooseSource.setEnabled(True)
+        self.LinePathSource.setEnabled(True)
         self.LinePathSource.clear()
         self.filesInFolder.clear()
         self.BtnConvert.setEnabled(False)
@@ -178,14 +185,14 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         for filename in os.listdir(self.source):
-            src: str = os.path.join(self.path, filename)
+            src: str = os.path.join(self.source, filename)
             try:
-                res = self.check_file_format(src)
+                res = check_file_format(src)
                 self.classify_dict[src] = res
-                if res == FileFormat.good:
+                if res == FileFormat.CORRECT:
                     self.insert_item_with_color(filename, BLACK)
                     self.BtnSkip.setEnabled(True)
-                elif res == FileFormat.notMusic:
+                elif res == FileFormat.NOT_MUSIC:
                     self.insert_item_with_color(filename, GRAY)
                 else:
                     self.insert_item_with_color(filename, RED)
@@ -194,29 +201,36 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 error_message("ошибка открытия файла %s" % src)
                 continue
 
-    def convert(self, src, dst):
+    def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
+        """
+        convert file from src path to dest path using correct format (wav, 16bit, 48000) or just copy in format is good
+        :param src: source file
+        :param dst:dest file
+        :return: status of operation
+        """
         res = self.classifyDict[src]
         if res == FileFormat.good:
             if src != dst:
                 copyfile(src, dst)
             return True
-        elif res == FileFormat.bad:
-            code = subprocess.call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' % (src, FRAMERATE, SAMPLEFMT, dst), shell=True)
+        elif res == FileFormat.bad and convert:
+            code = subprocess.call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' %
+                                   (src, FRAMERATE, SAMPLEFMT, dst), shell=True)
             if code == 0:
                 return True
             else:
-                print ("Error converting file %s" % src)
+                print("Error converting file %s" % src)
                 return False
+        return False
 
-    def copyOnly(self, src, dst):
-        if self.classifyDict[src] == FileFormat.good:
-            if src != dst:
-                copyfile(src, dst)
-            return True
+    def process_files(self, func):
+        """
 
-
-    def convertOrCopy(self, func):
-        src_path = self.path
+        :param func:
+        :return:
+        """
+        #get new file name
+        src_path = self.source
         basename = os.path.basename(src_path)
         full_dest = os.path.join(self.dest, basename)
         if not os.path.isdir(full_dest):
@@ -237,13 +251,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             src = os.path.join(src_path, filename)
             dst_name = filename[:-4] + ".wav"
             dst = os.path.join(full_dest, dst_name)
-            func(src, dst) #возвращает true, если это был подходящий файл, и false, если нет
+            func(src, dst, True) #возвращает true, если это был подходящий файл, и false, если нет
 
         self.filesInFolder.clear()
         self.BtnCards.setEnabled(True)
         self.BtnConvert.setEnabled(False)
         self.BtnSkip.setEnabled(False)
-
 
     def timertick(self):
         try:

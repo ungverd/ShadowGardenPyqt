@@ -140,7 +140,11 @@
      <widget class="QListView" name="LstFiles"/>
     </item>
     <item row="10" column="1" colspan="2">
-     <widget class="QLineEdit" name="LinePathSource"/>
+     <widget class="QLineEdit" name="LinePathSource">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+     </widget>
     </item>
     <item row="1" column="2">
      <widget class="QPushButton" name="BtnChooseDest">
