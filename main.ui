@@ -34,16 +34,6 @@
       </property>
      </widget>
     </item>
-    <item row="19" column="1" colspan="2">
-     <widget class="QPushButton" name="BtnCards">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="text">
-       <string>Начать соотносить</string>
-      </property>
-     </widget>
-    </item>
     <item row="5" column="1">
      <widget class="QLabel" name="LblStep2">
       <property name="font">
@@ -174,6 +164,26 @@
      <widget class="QLabel" name="LblSource">
       <property name="text">
        <string>Выбрана папка:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="19" column="1">
+     <widget class="QPushButton" name="BtnCards">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Начать соотносить</string>
+      </property>
+     </widget>
+    </item>
+    <item row="19" column="2">
+     <widget class="QPushButton" name="BtnStop">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Прервать</string>
       </property>
      </widget>
     </item>
