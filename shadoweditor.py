@@ -36,6 +36,7 @@ class Usbhost:
 class Serial:
     class Serial(QtWidgets.QWidget):
         def __init__(self, port, baudrate, timeout):
+            super().__init__()
             self.i = 0
             self.values = list()
             self.port = port
@@ -55,6 +56,7 @@ class Serial:
             return res
 # end of emulation
 
+
 class FileFormat(Enum):
     NOT_MUSIC = 1
     CORRECT = 2
@@ -73,7 +75,7 @@ class State(Enum):
 class MusicProcessor:
     state: State = State.NOTHING_SELECTED
     folder_names: List[str] = field(default_factory=list)
-    classify_dict: Dict[str, FileFormat] = field(default_factory=dict())
+    classify_dict: Dict[str, FileFormat] = field(default_factory=dict)
     dest: str = ""
     source: str = ""
     ser = None
@@ -118,7 +120,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         """
         sender = self.sender()
         if sender == self.BtnChooseDest and self.state.source:
-            reply = QtWidgets.QMessageBox.question(self, 'Message', "Остальные данные будут сброшены, продолжить?",
+            reply = QtWidgets.QMessageBox.question(self, 'Сброс', "Остальные данные будут сброшены, продолжить?",
                                                    QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
             if reply == QtWidgets.QMessageBox.No:
                 return
@@ -148,7 +150,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         """
         sender = self.sender()
         if sender == self.LinePathDest and self.state.source:
-            reply = QtWidgets.QMessageBox.question(self, 'Message', "Остальные данные будут сброшены, продолжить?",
+            reply = QtWidgets.QMessageBox.question(self, 'Сброс', "Остальные данные будут сброшены, продолжить?",
                                                    QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No)
             if reply == QtWidgets.QMessageBox.No:
                 return
@@ -198,6 +200,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         have red colour and we may convert them
         :return:
         """
+        self.LblSource.setText("Выбрана папка: %s" % self.state.source)
         for filename in os.listdir(self.state.source):
             src: str = os.path.join(self.state.source, filename)
             try:
@@ -225,11 +228,11 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return: status of operation
         """
         res = self.state.classify_dict[src]
-        if res == FileFormat.good:
+        if res == FileFormat.CORRECT:
             if src != dst:
                 copyfile(src, dst)
             return True
-        elif res == FileFormat.bad and convert:
+        elif res == FileFormat.INCORRECT and convert:
             code = subprocess.call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' %
                                    (src, FRAMERATE, SAMPLEFMT, dst), shell=True)
             if code == 0:
@@ -247,7 +250,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         sender = self.sender()
         full_dest = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
         basename = os.path.basename(full_dest)
-        self.folder_names.append(basename)
+        self.state.folder_names.append(basename)
         self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
         for filename in os.listdir(self.state.source):
             src_full = os.path.join(self.state.source, filename)
@@ -268,7 +271,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.color_next_dir(-1)
         port = Usbhost.get_device_port()
         self.state.ser = Serial.Serial(port, baudrate=115200, timeout=0.1)
-        self.state.csv_file = open(os.path.join(self.dest, 'folders.csv'), 'w', newline='')
+        self.state.csv_file = open(os.path.join(self.state.dest, 'folders.csv'), 'w', newline='')
         self.state.state = State.PROCESSING
         self.timer.start(1000)
         self.BtnStop.setEnabled(True)
@@ -301,8 +304,10 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.timer.stop()
-        self.state.ser.close()
-        self.state.csv_file.close()
+        if self.state.ser:
+            self.state.ser.close()
+        if self.state.csv_file:
+            self.state.csv_file.close()
         self.state = MusicProcessor()
         self.select_dest_ui()
 
@@ -325,7 +330,6 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         sets ui for files ready status
         :return:
         """
-        self.filesInFolder.clear()
         self.BtnCards.setEnabled(True)
         self.BtnConvert.setEnabled(False)
         self.BtnSkip.setEnabled(False)
