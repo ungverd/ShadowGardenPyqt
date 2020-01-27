@@ -33,7 +33,7 @@ class Usbhost:
         return 500
 
 
-class Serial:
+class serial:
     class Serial(QtWidgets.QWidget):
         def __init__(self, port, baudrate, timeout):
             super().__init__()
@@ -78,6 +78,7 @@ class MusicProcessor:
     classify_dict: Dict[str, FileFormat] = field(default_factory=dict)
     dest: str = ""
     source: str = ""
+    last_folder  = ""
     ser = None
     csv_file = None
     current: int = 0
@@ -105,6 +106,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.LinePathSource.editingFinished.connect(self.get_folder_from_field)
         self.BtnCards.clicked.connect(self.apply_cards_prepare)
         self.BtnStop.clicked.connect(self.tear_down)
+        self.BtnReady.clicked.connect(self.files_ready)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.timertick)
@@ -127,8 +129,11 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         (ui_function, folder_field) = (self.select_dest_ui, 'dest') if sender == self.BtnChooseDest \
             else (self.select_target_ui_and_convert, 'source')
         title = "Выберите папку"
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, title, os.path.dirname(os.path.abspath(__file__)))
+        current_folder = os.path.dirname(os.path.abspath(__file__)) if not self.state.last_folder\
+            else self.state.last_folder
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, title, os.path.dirname(os.path.abspath(current_folder)))
         if folder:
+            self.state.last_folder = os.path.basename(folder)
             setattr(self.state, folder_field, folder)
             ui_function()
 
@@ -181,6 +186,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.LblDest.setText("Выбрана папка: %s" % self.state.dest)
         self.LblSource.setText("Выбрана папка:")
         self.BtnStop.setEnabled(False)
+        self.BtnReady.setEnabled(False)
 
     def insert_item_with_color(self, text: str, color):
         """
@@ -201,6 +207,9 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.LblSource.setText("Выбрана папка: %s" % self.state.source)
+        if self.state.source != self.LinePathSource.text():
+            self.LinePathSource.clear()
+        self.filesInFolder.clear()
         for filename in os.listdir(self.state.source):
             src: str = os.path.join(self.state.source, filename)
             try:
@@ -218,6 +227,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 message_popup("Ошибка открытия файла %s" % src, 'error')
                 continue
         self.state.state = State.SOURCE_SELECTED
+        if self.BtnSkip.isEnabled() or self.BtnConvert.isEnabled():
+            self.BtnReady.setEnabled(True)
 
     def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
         """
@@ -260,6 +271,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             res = self.copy_and_convert(src_full, dst_full, must_convert)
             if not res:
                 message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
+
+    def files_ready(self):
+        """
+        folder selection ended
+        :return:
+        """
         self.state.state = State.FILES_READY
         self.set_files_ready_ui()
 
@@ -270,7 +287,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         """
         self.color_next_dir(-1)
         port = Usbhost.get_device_port()
-        self.state.ser = Serial.Serial(port, baudrate=115200, timeout=0.1)
+        self.state.ser = serial.Serial(port, baudrate=115200, timeout=0.1)
         self.state.csv_file = open(os.path.join(self.state.dest, 'folders.csv'), 'w', newline='')
         self.state.state = State.PROCESSING
         self.timer.start(1000)
@@ -335,6 +352,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnSkip.setEnabled(False)
         self.BtnChooseSource.setEnabled(False)
         self.LinePathSource.setEnabled(False)
+        self.BtnReady.setEnabled(False)
 
     def closeEvent(self, event):
         """
