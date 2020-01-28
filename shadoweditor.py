@@ -78,7 +78,7 @@ class MusicProcessor:
     classify_dict: Dict[str, FileFormat] = field(default_factory=dict)
     dest: str = ""
     source: str = ""
-    last_folder  = ""
+    last_folder = ""
     ser = None
     csv_file = None
     current: int = 0
@@ -88,9 +88,10 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     #  EMULATION WITH KEYS #
     def keyPressEvent(self, e):
-        if hasattr(self, 'ser'):
-            self.ser.values.append(self.ser.i)
-            self.ser.i += 1
+        if self.state.state == State.PROCESSING:
+            self.state.ser.values.append(self.state.ser.i)
+            self.state.ser.i += 1
+        e.accept()
     # END OF EMULATION
 
     def __init__(self):
@@ -279,6 +280,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             dst_filename = os.path.splitext(filename)[0] + '.wav'
             dst_full = os.path.join(full_dest, dst_filename)
             must_convert = True if sender == self.BtnConvert else False
+            print(filelist.index(filename))
             self.LblProgress.setText("Конвертируется %i файл из %i" % (filelist.index(filename) + 1, len(filelist)))
             res = self.copy_and_convert(src_full, dst_full, must_convert)
             if not res:
@@ -319,8 +321,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 answer = self.state.ser.readall().decode('utf-8').split('\r')
                 for line in answer:
                     if line.startswith("Card: "):
-                        if line != self.state.previous and self.state.current < len(self.state.folder_names):
-                            self.state.previous = line
+                        if line != self.state.last_folder and self.state.current < len(self.state.folder_names):
+                            self.state.last_folder = line
                             words = line.split()
                             writer.writerow([words[1], words[2], self.state.folder_names[self.state.current]])
                             self.color_next_dir(self.state.current)
@@ -373,6 +375,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         disables all controls
         :return:
         """
+        print("disable")
         for control in self.all_controls:
             control.setEnabled(False)
 
