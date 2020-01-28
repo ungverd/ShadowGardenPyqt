@@ -115,6 +115,10 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.foldersInFolder = QtGui.QStandardItemModel()
         self.LstDirs.setModel(self.foldersInFolder)
 
+        self.all_controls = [self.BtnChooseDest, self.BtnCreateDest, self.LinePathDest,
+                             self.BtnChooseSource, self.LinePathSource, self.BtnConvert, self.BtnSkip, self.BtnReady,
+                             self.BtnCards, self.BtnStop]
+
     def select_folder(self):
         """
         selects and returns folder and calls ui function
@@ -188,6 +192,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.LblSource.setText("Выбрана папка:")
         self.BtnStop.setEnabled(False)
         self.BtnReady.setEnabled(False)
+        self.LblProgress.setText("")
 
     def insert_item_with_color(self, text: str, color):
         """
@@ -248,11 +253,11 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 copyfile(src, dst)
             return True
         elif res == FileFormat.INCORRECT and convert:
-            code = subprocess.call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' %
-                                   (src, FRAMERATE, SAMPLEFMT, dst), shell=True)
-            if code == 0:
+            try:
+                subprocess.check_call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' % (src, FRAMERATE, SAMPLEFMT, dst),
+                                      shell=False)
                 return True
-            else:
+            except subprocess.CalledProcessError:
                 print("Error converting file %s" % src)
                 return False
         return True
@@ -263,18 +268,22 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         sender = self.sender()
-        full_dest = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
+        full_dest: str = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
         basename = os.path.basename(full_dest)
         self.state.folder_names.append(basename)
         self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
-        for filename in os.listdir(self.state.source):
+        filelist: List[str] = os.listdir(self.state.source)
+        self.disable_all()
+        for filename in filelist:
             src_full = os.path.join(self.state.source, filename)
             dst_filename = os.path.splitext(filename)[0] + '.wav'
             dst_full = os.path.join(full_dest, dst_filename)
             must_convert = True if sender == self.BtnConvert else False
+            self.LblProgress.setText("Конвертируется %i файл из %i" % (filelist.index(filename) + 1, len(filelist)))
             res = self.copy_and_convert(src_full, dst_full, must_convert)
             if not res:
                 message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
+        self.set_converted_ui()
 
     def files_ready(self):
         """
@@ -358,6 +367,24 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnChooseSource.setEnabled(False)
         self.LinePathSource.setEnabled(False)
         self.BtnReady.setEnabled(False)
+
+    def disable_all(self):
+        """
+        disables all controls
+        :return:
+        """
+        for control in self.all_controls:
+            control.setEnabled(False)
+
+    def set_converted_ui(self):
+        """
+        enables all controls available after conversion
+        :return:
+        """
+        for_enable = [self.BtnCreateDest, self.BtnChooseDest, self.LinePathDest, self.BtnChooseSource,
+                      self.LinePathSource, self.BtnReady]
+        for control in for_enable:
+            control.setEnabled(True)
 
     def closeEvent(self, event):
         """

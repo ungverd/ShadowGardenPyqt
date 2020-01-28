@@ -24,7 +24,7 @@
       </property>
      </widget>
     </item>
-    <item row="18" column="1">
+    <item row="19" column="1">
      <widget class="QLabel" name="LblStep3">
       <property name="font">
        <font>
@@ -99,7 +99,7 @@
     <item row="3" column="1" colspan="2">
      <widget class="QLineEdit" name="LinePathDest"/>
     </item>
-    <item row="21" column="1" colspan="2">
+    <item row="22" column="1" colspan="2">
      <widget class="QLabel" name="LblFormat">
       <property name="font">
        <font>
@@ -118,7 +118,7 @@
       </property>
      </widget>
     </item>
-    <item row="20" column="1">
+    <item row="21" column="1">
      <widget class="QPushButton" name="BtnCards">
       <property name="enabled">
        <bool>false</bool>
@@ -143,7 +143,7 @@
       </property>
      </widget>
     </item>
-    <item row="19" column="1" colspan="2">
+    <item row="20" column="1" colspan="2">
      <widget class="QListView" name="LstDirs"/>
     </item>
     <item row="4" column="1" colspan="2">
@@ -177,7 +177,7 @@
       </property>
      </widget>
     </item>
-    <item row="20" column="2">
+    <item row="21" column="2">
      <widget class="QPushButton" name="BtnStop">
       <property name="enabled">
        <bool>false</bool>
@@ -187,7 +187,7 @@
       </property>
      </widget>
     </item>
-    <item row="17" column="1" colspan="2">
+    <item row="18" column="1" colspan="2">
      <widget class="QPushButton" name="BtnReady">
       <property name="text">
        <string>Все папки выбраны</string>
@@ -199,6 +199,13 @@
       <property name="text">
        <string>После конвертации одной папки вы можете 
  выбрать следующую.</string>
+      </property>
+     </widget>
+    </item>
+    <item row="17" column="1" colspan="2">
+     <widget class="QLabel" name="LblProgress">
+      <property name="text">
+       <string/>
       </property>
      </widget>
     </item>
