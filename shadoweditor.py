@@ -255,10 +255,15 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             return True
         elif res == FileFormat.INCORRECT and convert:
             try:
-                subprocess.check_call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' % (src, FRAMERATE, SAMPLEFMT, dst),
-                                      shell=False)
+                #subprocess.check_call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' % (src, FRAMERATE, SAMPLEFMT, dst),
+                #                      shell=False)
+                command = "ffmpeg"
+                args = ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
+                process = QtCore.QProcess(self)
+                # process.finished.connect(self.onFinished)
+                process.startDetached(command, args)
                 return True
-            except subprocess.CalledProcessError:
+            except Exception:
                 print("Error converting file %s" % src)
                 return False
         return True
