@@ -4,7 +4,6 @@ from shutil import copyfile
 from enum import Enum
 import wave
 import csv
-import subprocess
 from typing import List, Dict
 # import serial
 # import Usbhost
@@ -67,8 +66,10 @@ class State(Enum):
     NOTHING_SELECTED = 1
     DEST_SELECTED = 2
     SOURCE_SELECTED = 3
-    FILES_READY = 4
+    READY_TO_PROSECC = 4
     PROCESSING = 5
+    FILES_READY = 6
+    CARDS = 7
 
 
 @dataclass
@@ -81,7 +82,10 @@ class MusicProcessor:
     last_folder = ""
     ser = None
     csv_file = None
-    current: int = 0
+    current_folder: int = 0
+    current_file: int = 0
+    files_number: int = 0
+    convert: bool = False
 
 
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
@@ -255,18 +259,29 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             return True
         elif res == FileFormat.INCORRECT and convert:
             try:
-                #subprocess.check_call('ffmpeg -i "%s" -ar %d -sample_fmt %s "%s"' % (src, FRAMERATE, SAMPLEFMT, dst),
-                #                      shell=False)
                 command = "ffmpeg"
                 args = ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
                 process = QtCore.QProcess(self)
-                # process.finished.connect(self.onFinished)
-                process.startDetached(command, args)
+                process.finished.connect(self.file_converted)
+                process.start(command, args)
                 return True
             except Exception:
                 print("Error converting file %s" % src)
                 return False
         return True
+
+    def file_converted(self):
+        """
+        when converting process is over
+        :return:
+        """
+        print(self.state.current_file)
+        self.state.current_file += 1
+        self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
+        if self. state.current_file >= self.state.files_number:
+            print("-----" + str(self.state.current_file) + '-----' + str(self.state.files_number))
+            self.LblProgress.setText("Конвертация закончена")
+            self.set_converted_ui()
 
     def process_files(self):
         """
@@ -274,23 +289,13 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         sender = self.sender()
-        full_dest: str = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
-        basename = os.path.basename(full_dest)
-        self.state.folder_names.append(basename)
-        self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
-        filelist: List[str] = os.listdir(self.state.source)
-        self.disable_all()
-        for filename in filelist:
-            src_full = os.path.join(self.state.source, filename)
-            dst_filename = os.path.splitext(filename)[0] + '.wav'
-            dst_full = os.path.join(full_dest, dst_filename)
-            must_convert = True if sender == self.BtnConvert else False
-            print(filelist.index(filename))
-            self.LblProgress.setText("Конвертируется %i файл из %i" % (filelist.index(filename) + 1, len(filelist)))
-            res = self.copy_and_convert(src_full, dst_full, must_convert)
-            if not res:
-                message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
-        self.set_converted_ui()
+        self.LblProgress.setText("Конвертация началась")
+        for control in self.all_controls:
+            control.setEnabled(False)
+        self.state.state = State.READY_TO_PROSECC
+        self.state.current_file = 1
+        self.state.convert = True if sender == self.BtnConvert else False
+        self.timer.start(100)
 
     def files_ready(self):
         """
@@ -309,8 +314,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         port = Usbhost.get_device_port()
         self.state.ser = serial.Serial(port, baudrate=115200, timeout=0.1)
         self.state.csv_file = open(os.path.join(self.state.dest, 'folders.csv'), 'w', newline='')
-        self.state.state = State.PROCESSING
-        self.timer.start(1000)
+        self.state.state = State.CARDS
         self.BtnStop.setEnabled(True)
         self.BtnCards.setEnabled(False)
 
@@ -320,21 +324,43 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         if we are in processing state, try to read cards
         :return:
         """
-        if self.state.state == State.PROCESSING:
+        print(self.state)
+        if self.state.state == State.CARDS:
             writer = csv.writer(self.state.csv_file, dialect='excel')
-            if self.state.current < len(self.state.folder_names):
+            if self.state.current_folder < len(self.state.folder_names):
                 answer = self.state.ser.readall().decode('utf-8').split('\r')
                 for line in answer:
                     if line.startswith("Card: "):
-                        if line != self.state.last_folder and self.state.current < len(self.state.folder_names):
+                        if line != self.state.last_folder and self.state.current_folder < len(self.state.folder_names):
                             self.state.last_folder = line
                             words = line.split()
-                            writer.writerow([words[1], words[2], self.state.folder_names[self.state.current]])
-                            self.color_next_dir(self.state.current)
-                            self.state.current += 1
+                            writer.writerow([words[1], words[2], self.state.folder_names[self.state.current_folder]])
+                            self.color_next_dir(self.state.current_folder)
+                            self.state.current_folder += 1
             else:
                 message_popup("Запись карточек окончена", "info")
                 self.tear_down()
+        if self.state.state == State.READY_TO_PROSECC:
+            self.state.state = State.PROCESSING
+            filelist: List[str] = os.listdir(self.state.source)
+            self.state.files_number = len(filelist)
+            full_dest: str = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
+            basename = os.path.basename(full_dest)
+            self.state.folder_names.append(basename)
+            self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
+            for filename in filelist:
+                print(filename)
+                src_full = os.path.join(self.state.source, filename)
+                dst_filename = os.path.splitext(filename)[0] + '.wav'
+                dst_full = os.path.join(full_dest, dst_filename)
+                res = self.copy_and_convert(src_full, dst_full, self.state.convert)
+                if not res:
+                    message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
+        if self.state.state == State.PROCESSING:
+            print("here")
+            if "Конвертация началась" in self.LblProgress.text():
+                print("there")
+                self.LblProgress.setText(self.LblProgress.text() + '.')
 
     def tear_down(self):
         """
@@ -375,15 +401,6 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.LinePathSource.setEnabled(False)
         self.BtnReady.setEnabled(False)
 
-    def disable_all(self):
-        """
-        disables all controls
-        :return:
-        """
-        print("disable")
-        for control in self.all_controls:
-            control.setEnabled(False)
-
     def set_converted_ui(self):
         """
         enables all controls available after conversion
@@ -393,6 +410,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                       self.LinePathSource, self.BtnReady]
         for control in for_enable:
             control.setEnabled(True)
+        self.state.state = State.DEST_SELECTED
 
     def closeEvent(self, event):
         """
