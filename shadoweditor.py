@@ -92,7 +92,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     #  EMULATION WITH KEYS #
     def keyPressEvent(self, e):
-        if self.state.state == State.PROCESSING:
+        if self.state.state == State.CARDS:
             self.state.ser.values.append(self.state.ser.i)
             self.state.ser.i += 1
         e.accept()
@@ -105,16 +105,19 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnCreateDest.clicked.connect(self.create_dest_folder)
         self.BtnChooseDest.clicked.connect(self.select_folder)
         self.LinePathDest.editingFinished.connect(self.get_folder_from_field)
+
         self.BtnChooseSource.clicked.connect(self.select_folder)
         self.BtnConvert.clicked.connect(self.process_files)
         self.BtnSkip.clicked.connect(self.process_files)
         self.LinePathSource.editingFinished.connect(self.get_folder_from_field)
+
         self.BtnCards.clicked.connect(self.apply_cards_prepare)
         self.BtnStop.clicked.connect(self.tear_down)
         self.BtnReady.clicked.connect(self.files_ready)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.timertick)
+
         self.filesInFolder = QtGui.QStandardItemModel()
         self.LstFiles.setModel(self.filesInFolder)
         self.foldersInFolder = QtGui.QStandardItemModel()
@@ -136,15 +139,15 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             if reply == QtWidgets.QMessageBox.No:
                 return
         (ui_function, folder_field) = (self.select_dest_ui, 'dest') if sender == self.BtnChooseDest \
-            else (self.select_target_ui_and_convert, 'source')
-        title = "Выберите папку"
+            else (self.select_source_ui_and_convert, 'source')
         current_folder = os.path.dirname(os.path.abspath(__file__)) if not self.state.last_folder\
             else self.state.last_folder
-        folder = QtWidgets.QFileDialog.getExistingDirectory(self, title, current_folder)
+        folder = QtWidgets.QFileDialog.getExistingDirectory(self, "Выберите папку", current_folder)
         if folder:
             self.state.last_folder = folder
             setattr(self.state, folder_field, folder)
             ui_function()
+        return
 
     def create_dest_folder(self):
         """
@@ -157,6 +160,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         full_path = create_new_folder(full_path)
         self.state.dest = full_path
         self.select_dest_ui()
+        return
 
     def get_folder_from_field(self):
         """
@@ -171,13 +175,14 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                     return
         folder = sender.text()
         ui_function, field_folder = (self.select_dest_ui, 'dest') if sender == self.LinePathDest \
-            else (self.select_target_ui_and_convert, 'source')
+            else (self.select_source_ui_and_convert, 'source')
         if os.path.exists(folder):
             result_path = folder if os.path.isdir(folder) else os.path.split(folder)[0]
             setattr(self.state, field_folder, result_path)
             ui_function()
         elif sender.text():
             message_popup("Выбранной папки не существует", 'error')
+        return
 
     def select_dest_ui(self):
         """
@@ -185,19 +190,22 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.state = MusicProcessor(state=State.DEST_SELECTED, dest=self.state.dest)
+
         self.BtnChooseSource.setEnabled(True)
         self.LinePathSource.setEnabled(True)
         self.LinePathSource.clear()
+        self.LblSource.setText("Выбрана папка:")
+        self.LblDest.setText("Выбрана папка: %s" % self.state.dest)
+
         self.filesInFolder.clear()
         self.BtnConvert.setEnabled(False)
         self.BtnSkip.setEnabled(False)
         self.foldersInFolder.clear()
         self.BtnCards.setEnabled(False)
-        self.LblDest.setText("Выбрана папка: %s" % self.state.dest)
-        self.LblSource.setText("Выбрана папка:")
         self.BtnStop.setEnabled(False)
         self.BtnReady.setEnabled(False)
         self.LblProgress.setText("")
+        return
 
     def insert_item_with_color(self, text: str, color):
         """
@@ -209,12 +217,24 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         item = QtGui.QStandardItem(text)
         item.setForeground(QtGui.QBrush(QtGui.QColor(*color)))
         self.filesInFolder.appendRow(item)
+        return
 
-    def select_target_ui_and_convert(self):
+    def select_source_ui_and_convert(self):
         """
         scans all files in selected folder and adds them to file list
         correct files have black font color, not sound files have gray font color and sound files with incorrect format
         have red colour and we may convert them
+        :return:
+        """
+        self.set_source_ui()
+        for filename in os.listdir(self.state.source):
+            self.classify_file(filename)
+        self.state.state = State.SOURCE_SELECTED
+        return
+
+    def set_source_ui(self):
+        """
+        selects ui for source chosen
         :return:
         """
         self.LblSource.setText("Выбрана папка: %s" % self.state.source)
@@ -223,9 +243,16 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnConvert.setEnabled(False)
         self.BtnSkip.setEnabled(False)
         self.filesInFolder.clear()
+        return
 
-        for filename in os.listdir(self.state.source):
-            src: str = os.path.join(self.state.source, filename)
+    def classify_file(self, filename: str):
+        """
+        classifies file as correct, incorrect and not music, writes res in dict and adds coloured item to files list
+        :param filename: name of file to slassify
+        :return:
+        """
+        src: str = os.path.join(self.state.source, filename)
+        if not os.path.isdir(src):
             try:
                 res = check_file_format(src)
                 self.state.classify_dict[src] = res
@@ -239,10 +266,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                     self.BtnConvert.setEnabled(True)
             except (FileNotFoundError, OSError):
                 message_popup("Ошибка открытия файла %s" % src, 'error')
-                continue
-        self.state.state = State.SOURCE_SELECTED
-        if self.BtnSkip.isEnabled() or self.BtnConvert.isEnabled():
-            self.BtnReady.setEnabled(True)
+        return
 
     def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
         """
@@ -253,14 +277,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return: status of operation (False only in is musical file and was not converted)
         """
         res = self.state.classify_dict[src]
-        if res == FileFormat.CORRECT:
-            if src != dst:
-                copyfile(src, dst)
+        if res == FileFormat.CORRECT and src != dst:
+            copyfile(src, dst)
             return True
         elif res == FileFormat.INCORRECT and convert:
             try:
-                command = "ffmpeg"
-                args = ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
+                command, args = "ffmpeg", ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
                 process = QtCore.QProcess(self)
                 process.finished.connect(self.file_converted)
                 process.start(command, args)
@@ -275,13 +297,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         when converting process is over
         :return:
         """
-        print(self.state.current_file)
         self.state.current_file += 1
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
         if self. state.current_file >= self.state.files_number:
-            print("-----" + str(self.state.current_file) + '-----' + str(self.state.files_number))
             self.LblProgress.setText("Конвертация закончена")
             self.set_converted_ui()
+        return
 
     def process_files(self):
         """
@@ -289,13 +310,15 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         sender = self.sender()
-        self.LblProgress.setText("Конвертация началась")
+        if self.state.convert:
+            self.LblProgress.setText("Конвертация началась")
         for control in self.all_controls:
             control.setEnabled(False)
         self.state.state = State.READY_TO_PROSECC
         self.state.current_file = 1
         self.state.convert = True if sender == self.BtnConvert else False
-        self.timer.start(100)
+        self.timer.start(1000)
+        return
 
     def files_ready(self):
         """
@@ -304,6 +327,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         """
         self.state.state = State.FILES_READY
         self.set_files_ready_ui()
+        return
 
     def apply_cards_prepare(self):
         """
@@ -317,6 +341,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.state.state = State.CARDS
         self.BtnStop.setEnabled(True)
         self.BtnCards.setEnabled(False)
+        return
 
     def timertick(self):
         """
@@ -324,43 +349,64 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         if we are in processing state, try to read cards
         :return:
         """
-        print(self.state)
         if self.state.state == State.CARDS:
-            writer = csv.writer(self.state.csv_file, dialect='excel')
-            if self.state.current_folder < len(self.state.folder_names):
-                answer = self.state.ser.readall().decode('utf-8').split('\r')
-                for line in answer:
-                    if line.startswith("Card: "):
-                        if line != self.state.last_folder and self.state.current_folder < len(self.state.folder_names):
-                            self.state.last_folder = line
-                            words = line.split()
-                            writer.writerow([words[1], words[2], self.state.folder_names[self.state.current_folder]])
-                            self.color_next_dir(self.state.current_folder)
-                            self.state.current_folder += 1
-            else:
-                message_popup("Запись карточек окончена", "info")
-                self.tear_down()
+            self.process_files()
         if self.state.state == State.READY_TO_PROSECC:
             self.state.state = State.PROCESSING
-            filelist: List[str] = os.listdir(self.state.source)
-            self.state.files_number = len(filelist)
-            full_dest: str = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
-            basename = os.path.basename(full_dest)
-            self.state.folder_names.append(basename)
-            self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
-            for filename in filelist:
-                print(filename)
-                src_full = os.path.join(self.state.source, filename)
-                dst_filename = os.path.splitext(filename)[0] + '.wav'
-                dst_full = os.path.join(full_dest, dst_filename)
-                res = self.copy_and_convert(src_full, dst_full, self.state.convert)
-                if not res:
-                    message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
+            self.start_files_convertion()
+            if not self.state.convert:
+                self.set_converted_ui()
         if self.state.state == State.PROCESSING:
-            print("here")
-            if "Конвертация началась" in self.LblProgress.text():
-                print("there")
-                self.LblProgress.setText(self.LblProgress.text() + '.')
+            caption: str = self.LblProgress.text()
+            if "Конвертация началась" in caption:
+                if caption.count('.') < 10:
+                    self.LblProgress.setText(caption + '.')
+                else:
+                    self.LblProgress.setText("Конвертация началась")
+        return
+
+    def process_cards(self):
+        """
+        card processing for one timer tick
+        :return:
+        """
+        writer = csv.writer(self.state.csv_file, dialect='excel')
+        if self.state.current_folder < len(self.state.folder_names):
+            answer = self.state.ser.readall().decode('utf-8').split('\r')
+            for line in answer:
+                if line.startswith("Card: "):
+                    if line != self.state.last_folder and self.state.current_folder < len(self.state.folder_names):
+                        self.state.last_folder = line
+                        words = line.split()
+                        writer.writerow([words[1], words[2], self.state.folder_names[self.state.current_folder]])
+                        self.color_next_dir(self.state.current_folder)
+                        self.state.current_folder += 1
+        else:
+            message_popup("Запись карточек окончена", "info")
+            self.tear_down()
+        return
+
+    def start_files_convertion(self):
+        """
+        start convertation or copy for all files in source folder
+        :return:
+        """
+        filelist: List[str] = [name for name in os.listdir(self.state.source)
+                               if not os.path.isdir(os.path.join(self.state.source, name))]
+        self.state.files_number = len([x for x in self.state.classify_dict.keys()
+                                       if self.state.classify_dict[x] == FileFormat.INCORRECT])
+        full_dest: str = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
+        basename = os.path.basename(full_dest)
+        self.state.folder_names.append(basename)
+        self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
+        for filename in filelist:
+            src_full = os.path.join(self.state.source, filename)
+            dst_filename = os.path.splitext(filename)[0] + '.wav'
+            dst_full = os.path.join(full_dest, dst_filename)
+            res = self.copy_and_convert(src_full, dst_full, self.state.convert)
+            if not res:
+                message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
+        return
 
     def tear_down(self):
         """
@@ -374,6 +420,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             self.state.csv_file.close()
         self.state = MusicProcessor()
         self.select_dest_ui()
+        return
 
     def color_next_dir(self, i: int):
         """
@@ -388,6 +435,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             self.foldersInFolder.item(i).setBackground(white)
         if i + 1 < self.foldersInFolder.rowCount():
             self.foldersInFolder.item(i + 1).setBackground(blue)
+        return
 
     def set_files_ready_ui(self):
         """
@@ -400,6 +448,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnChooseSource.setEnabled(False)
         self.LinePathSource.setEnabled(False)
         self.BtnReady.setEnabled(False)
+        return
 
     def set_converted_ui(self):
         """
@@ -407,10 +456,13 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         for_enable = [self.BtnCreateDest, self.BtnChooseDest, self.LinePathDest, self.BtnChooseSource,
-                      self.LinePathSource, self.BtnReady]
+                      self.LinePathSource]
+        if self.foldersInFolder.rowCount():
+            self.BtnReady.setEnabled(True)
         for control in for_enable:
             control.setEnabled(True)
         self.state.state = State.DEST_SELECTED
+        return
 
     def closeEvent(self, event):
         """
@@ -473,7 +525,7 @@ def message_popup(text: str, message_type: str):
         message.setWindowTitle('Ошибка!')
     else:
         message.setIcon(QtWidgets.QMessageBox.Information)
-        message.setWindowTitle('')
+        message.setWindowTitle('Сообщение')
     message.setText(text)
     message.setStandardButtons(QtWidgets.QMessageBox.Ok)
     message.exec_()
