@@ -226,6 +226,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         have red colour and we may convert them
         :return:
         """
+        self.state.classify_dict = dict()
         self.set_source_ui()
         for filename in os.listdir(self.state.source):
             self.classify_file(filename)
@@ -310,13 +311,13 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         sender = self.sender()
-        if self.state.convert:
-            self.LblProgress.setText("Конвертация началась")
         for control in self.all_controls:
             control.setEnabled(False)
         self.state.state = State.READY_TO_PROSECC
         self.state.current_file = 1
         self.state.convert = True if sender == self.BtnConvert else False
+        if self.state.convert:
+            self.LblProgress.setText("Конвертация началась")
         self.timer.start(1000)
         return
 
@@ -350,7 +351,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         if self.state.state == State.CARDS:
-            self.process_files()
+            self.process_cards()
         if self.state.state == State.READY_TO_PROSECC:
             self.state.state = State.PROCESSING
             self.start_files_convertion()
@@ -382,7 +383,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                         self.color_next_dir(self.state.current_folder)
                         self.state.current_folder += 1
         else:
-            message_popup("Запись карточек окончена", "info")
+            message_popup("Создание файлов Сада Теней окончено", "info")
             self.tear_down()
         return
 
