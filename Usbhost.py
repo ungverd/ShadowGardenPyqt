@@ -34,12 +34,13 @@ def get_device_port() -> Optional[str]:
         try:
             # find comport with our device
             ser = open_port(comport)
-            command: bytes = bytes("ping\r\n", encoding='utf-8')
-            ser.write(command)
-            answer: str = ser.readall().decode('utf-8')
-            ser.close()
-            if 'Ack 0' in answer:
-                return comport
+            if ser:
+                command: bytes = bytes("ping\r\n", encoding='utf-8')
+                ser.write(command)
+                answer: str = ser.readall().decode('utf-8')
+                ser.close()
+                if 'Ack 0' in answer:
+                    return comport
         except serial.SerialException:
             continue
     return None
