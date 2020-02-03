@@ -77,6 +77,7 @@ class MusicProcessor:
     state: State = State.NOTHING_SELECTED
     folder_names: List[str] = field(default_factory=list)
     classify_dict: Dict[str, FileFormat] = field(default_factory=dict)
+    process_dict: Dict[str, FileFormat] = field(default_factory=dict)
     dest: str = ""
     source: str = ""
     last_folder = ""
@@ -205,6 +206,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnStop.setEnabled(False)
         self.BtnReady.setEnabled(False)
         self.LblProgress.setText("")
+        self.LblCards.setText("")
         return
 
     def insert_item_with_color(self, text: str, color):
@@ -227,6 +229,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.state.classify_dict = dict()
+        self.state.process_dict = dict()
         self.set_source_ui()
         for filename in os.listdir(self.state.source):
             self.classify_file(filename)
@@ -286,10 +289,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 command, args = "ffmpeg", ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
                 process = QtCore.QProcess(self)
                 process.finished.connect(self.file_converted)
+                self.state.process_dict[src] = process
                 process.start(command, args)
                 return True
-            except Exception:
-                print("Error converting file %s" % src)
+            except Exception as e:
+                print(e)
+                print("Ошибка конвертирования файла %s: %s" % (src, e))
                 return False
         return True
 
@@ -298,6 +303,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         when converting process is over
         :return:
         """
+        sender = self.sender()
+        print(sender.exitCode())
+        print(sender.exitStatus())
+        if sender.exitCode() != 0:
+            src_file = [file for file in self.state.process_dict.keys() if self.state.process_dict[file] == sender][0]
+            message_popup("Не удалось конвертировать файл %s" % src_file, "error")
         self.state.current_file += 1
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
         if self. state.current_file >= self.state.files_number:
@@ -335,11 +346,15 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         preparation for cards usr
         :return:
         """
-        self.color_next_dir(-1)
         port = Usbhost.get_device_port()
+        if not port:
+            message_popup("Медальон не подключен", "error")
+            return
+        self.color_next_dir(-1)
         self.state.ser = serial.Serial(port, baudrate=115200, timeout=0.1)
-        self.state.csv_file = open(os.path.join(self.state.dest, 'folders.csv'), 'w', newline='')
+        self.state.csv_file = open(os.path.join(self.state.dest, 'table.csv'), 'w', newline='')
         self.state.state = State.CARDS
+        self.LblCards.setText("Поднесите карточки: осталось %i" % len(self.state.folder_names))
         self.BtnStop.setEnabled(True)
         self.BtnCards.setEnabled(False)
         return
@@ -382,6 +397,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                         writer.writerow([words[1], words[2], self.state.folder_names[self.state.current_folder]])
                         self.color_next_dir(self.state.current_folder)
                         self.state.current_folder += 1
+                        self.LblCards.setText("Поднесите карточки: осталось %i" %
+                                              (len(self.state.folder_names) - self.state.current_folder))
         else:
             message_popup("Создание файлов Сада Теней окончено", "info")
             self.tear_down()
