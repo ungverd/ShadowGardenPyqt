@@ -268,6 +268,21 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             except (FileNotFoundError, OSError):
                 message_popup("Ошибка открытия файла %s" % src, 'error')
         return
+    
+    @staticmethod
+    def remove_excess_metadata(src: str):
+        """
+        sometimes in .wav file there is more metadata than our program can handle.
+        This function removes it
+        """
+        with open(src, "rb") as f:
+            arr = f.read()
+            if arr[37:41] != b"data":
+                with open(src, "wb") as ff:
+                    data_pos = arr.find(b"data", 37)
+                    new_arr = arr[:36] + arr[data_pos:]
+                    ff.write(new_arr)
+
 
     def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
         """
@@ -278,14 +293,22 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return: status of operation (False only in is musical file and was not converted)
         """
         res = self.state.classify_dict[src]
-        if res == FileFormat.CORRECT and src != dst:
-            copyfile(src, dst)
+        if res == FileFormat.CORRECT:
+            if src == dst:
+                self.remove_excess_metadata(src)
+            else:
+                copyfile(src, dst)
+                self.remove_excess_metadata(dst)
             return True
         elif res == FileFormat.INCORRECT and convert:
             try:
-                command, args = "ffmpeg", ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
+                '''def func_to_pass_dst(self, arr = [dst]):
+                    print(arr[0])
+                    self.remove_excess_metadata(arr[0])
+                    self.file_converted()'''
+                command, args = "ffmpeg", ["-i", f'"{src}"', '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), f'"{dst}"']
                 process = QtCore.QProcess(self)
-                process.finished.connect(self.file_converted)
+                process.finished.connect(file_converted)
                 process.start(command, args)
                 return True
             except Exception:
@@ -482,7 +505,7 @@ def check_file_format(path):
     :return:  FileFormat.NOT_MUSIC for not sound files, FileFormat.INCORRECT for not .wav or incorrect
     samplewidth or incorrect framerate
     """
-    if os.path.splitext(path)[1] in (".mp3", ".oog"):
+    if os.path.splitext(path)[1] in (".mp3", ".ogg"):
         return FileFormat.INCORRECT
     if os.path.splitext(path)[1] == ".wav":
         try:
