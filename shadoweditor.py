@@ -499,7 +499,7 @@ def check_file_format(path):
     :return:  FileFormat.NOT_MUSIC for not sound files, FileFormat.INCORRECT for not .wav or incorrect
     samplewidth or incorrect framerate
     """
-    if os.path.splitext(path)[1] in (".mp3", ".oog"):
+    if os.path.splitext(path)[1] in (".mp3", ".ogg", '.m4a'):
         return FileFormat.INCORRECT
     if os.path.splitext(path)[1] == ".wav":
         try:
