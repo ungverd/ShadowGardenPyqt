@@ -507,7 +507,7 @@ def check_file_format(path):
                 if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
                     return FileFormat.CORRECT
                 return FileFormat.INCORRECT
-        except wave.Error:
+        except (wave.Error, RuntimeError):
             return FileFormat.NOT_MUSIC
     return FileFormat.NOT_MUSIC
 
