@@ -77,6 +77,7 @@ class MusicProcessor:
     state: State = State.NOTHING_SELECTED
     folder_names: List[str] = field(default_factory=list)
     classify_dict: Dict[str, FileFormat] = field(default_factory=dict)
+    process_dict: Dict[str, FileFormat] = field(default_factory=dict)
     dest: str = ""
     source: str = ""
     last_folder = ""
@@ -205,6 +206,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.BtnStop.setEnabled(False)
         self.BtnReady.setEnabled(False)
         self.LblProgress.setText("")
+        self.LblCards.setText("")
         return
 
     def insert_item_with_color(self, text: str, color):
@@ -227,6 +229,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.state.classify_dict = dict()
+        self.state.process_dict = dict()
         self.set_source_ui()
         for filename in os.listdir(self.state.source):
             self.classify_file(filename)
@@ -268,21 +271,22 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             except (FileNotFoundError, OSError):
                 message_popup("Ошибка открытия файла %s" % src, 'error')
         return
-    
-    @staticmethod
-    def remove_excess_metadata(src: str):
+
+    def remove_excess_metadata(self):
         """
         sometimes in .wav file there is more metadata than our program can handle.
         This function removes it
         """
-        with open(src, "rb") as f:
-            arr = f.read()
-            if arr[37:41] != b"data":
-                with open(src, "wb") as ff:
-                    data_pos = arr.find(b"data", 37)
-                    new_arr = arr[:36] + arr[data_pos:]
-                    ff.write(new_arr)
-
+        for f in os.listdir(self.state.dest):
+            if f[-4:] == ".wav":
+                src = os.path.join(self.state.dest, f)
+                with open(src, "rb") as f:
+                    arr = f.read()
+                    if arr[37:41] != b"data":
+                        with open(src, "wb") as ff:
+                            data_pos = arr.find(b"data", 37)
+                            new_arr = arr[:36] + arr[data_pos:]
+                            ff.write(new_arr)
 
     def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
         """
@@ -293,26 +297,20 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return: status of operation (False only in is musical file and was not converted)
         """
         res = self.state.classify_dict[src]
-        if res == FileFormat.CORRECT:
-            if src == dst:
-                self.remove_excess_metadata(src)
-            else:
-                copyfile(src, dst)
-                self.remove_excess_metadata(dst)
+        if res == FileFormat.CORRECT and src != dst:
+            copyfile(src, dst)
             return True
         elif res == FileFormat.INCORRECT and convert:
             try:
-                '''def func_to_pass_dst(self, arr = [dst]):
-                    print(arr[0])
-                    self.remove_excess_metadata(arr[0])
-                    self.file_converted()'''
-                command, args = "ffmpeg", ["-i", f'"{src}"', '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), f'"{dst}"']
+                command, args = "ffmpeg", ["-i", src, '-ar', str(FRAMERATE), '-sample_fmt', str(SAMPLEFMT), dst]
                 process = QtCore.QProcess(self)
-                process.finished.connect(file_converted)
+                process.finished.connect(self.file_converted)
+                self.state.process_dict[src] = process
                 process.start(command, args)
                 return True
-            except Exception:
-                print("Error converting file %s" % src)
+            except Exception as e:
+                print(e)
+                print("Ошибка конвертирования файла %s: %s" % (src, e))
                 return False
         return True
 
@@ -321,6 +319,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         when converting process is over
         :return:
         """
+        sender = self.sender()
+        print(sender.exitCode())
+        print(sender.exitStatus())
+        if sender.exitCode() != 0:
+            src_file = [file for file in self.state.process_dict.keys() if self.state.process_dict[file] == sender][0]
+            message_popup("Не удалось конвертировать файл %s" % src_file, "error")
         self.state.current_file += 1
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
         if self. state.current_file >= self.state.files_number:
@@ -358,11 +362,15 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         preparation for cards usr
         :return:
         """
-        self.color_next_dir(-1)
         port = Usbhost.get_device_port()
+        if not port:
+            message_popup("Медальон не подключен", "error")
+            return
+        self.color_next_dir(-1)
         self.state.ser = serial.Serial(port, baudrate=115200, timeout=0.1)
-        self.state.csv_file = open(os.path.join(self.state.dest, 'folders.csv'), 'w', newline='')
+        self.state.csv_file = open(os.path.join(self.state.dest, 'table.csv'), 'w', newline='')
         self.state.state = State.CARDS
+        self.LblCards.setText("Поднесите карточки: осталось %i" % len(self.state.folder_names))
         self.BtnStop.setEnabled(True)
         self.BtnCards.setEnabled(False)
         return
@@ -405,6 +413,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                         writer.writerow([words[1], words[2], self.state.folder_names[self.state.current_folder]])
                         self.color_next_dir(self.state.current_folder)
                         self.state.current_folder += 1
+                        self.LblCards.setText("Поднесите карточки: осталось %i" %
+                                              (len(self.state.folder_names) - self.state.current_folder))
         else:
             message_popup("Создание файлов Сада Теней окончено", "info")
             self.tear_down()
@@ -476,9 +486,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def set_converted_ui(self):
         """
+        removes excess metadata if any from wav files in dest folder
+        and
         enables all controls available after conversion
         :return:
         """
+        self.remove_excess_metadata()
         for_enable = [self.BtnCreateDest, self.BtnChooseDest, self.LinePathDest, self.BtnChooseSource,
                       self.LinePathSource]
         if self.foldersInFolder.rowCount():
@@ -505,7 +518,7 @@ def check_file_format(path):
     :return:  FileFormat.NOT_MUSIC for not sound files, FileFormat.INCORRECT for not .wav or incorrect
     samplewidth or incorrect framerate
     """
-    if os.path.splitext(path)[1] in (".mp3", ".ogg"):
+    if os.path.splitext(path)[1] in (".mp3", ".ogg", '.m4a'):
         return FileFormat.INCORRECT
     if os.path.splitext(path)[1] == ".wav":
         try:
@@ -513,7 +526,7 @@ def check_file_format(path):
                 if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
                     return FileFormat.CORRECT
                 return FileFormat.INCORRECT
-        except wave.Error:
+        except (wave.Error, RuntimeError):
             return FileFormat.NOT_MUSIC
     return FileFormat.NOT_MUSIC
 
