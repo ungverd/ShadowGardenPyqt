@@ -298,6 +298,14 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 return False
         return True
 
+    def remove_excess_metadata(self):
+        self.LblProgress.setText("проверка файлов...")
+        command, args = "python", ["verifier.py", os.path.join(self.state.dest, os.path.basename(self.state.source))]
+        process = QtCore.QProcess(self)
+        process.finished.connect(self.set_converted_ui)
+        process.start(command, args)
+        
+
     def file_converted(self):
         """
         when converting process is over
@@ -312,8 +320,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         self.state.current_file += 1
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
         if self. state.current_file >= self.state.files_number:
-            self.LblProgress.setText("Конвертация закончена")
-            self.set_converted_ui()
+            self.remove_excess_metadata()
         return
 
     def process_files(self):
@@ -371,7 +378,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             self.state.state = State.PROCESSING
             self.start_files_convertion()
             if not self.state.convert:
-                self.set_converted_ui()
+                self.remove_excess_metadata()
         if self.state.state == State.PROCESSING:
             caption: str = self.LblProgress.text()
             if "Конвертация началась" in caption:
@@ -473,6 +480,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         enables all controls available after conversion
         :return:
         """
+        self.LblProgress.setText("Конвертация закончена")
         for_enable = [self.BtnCreateDest, self.BtnChooseDest, self.LinePathDest, self.BtnChooseSource,
                       self.LinePathSource]
         if self.foldersInFolder.rowCount():
