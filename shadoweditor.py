@@ -272,6 +272,22 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 message_popup("Ошибка открытия файла %s" % src, 'error')
         return
 
+    def remove_excess_metadata(self):
+        """
+        sometimes in .wav file there is more metadata than our program can handle.
+        This function removes it
+        """
+        for f in os.listdir(self.state.dest):
+            if f[-4:] == ".wav":
+                src = os.path.join(self.state.dest, f)
+                with open(src, "rb") as f:
+                    arr = f.read()
+                    if arr[37:41] != b"data":
+                        with open(src, "wb") as ff:
+                            data_pos = arr.find(b"data", 37)
+                            new_arr = arr[:36] + arr[data_pos:]
+                            ff.write(new_arr)
+
     def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
         """
         convert file from src path to dest path using correct format (wav, 16bit, 48000) or just copy in format is good
@@ -470,9 +486,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def set_converted_ui(self):
         """
+        removes excess metadata if any from wav files in dest folder
+        and
         enables all controls available after conversion
         :return:
         """
+        self.remove_excess_metadata()
         for_enable = [self.BtnCreateDest, self.BtnChooseDest, self.LinePathDest, self.BtnChooseSource,
                       self.LinePathSource]
         if self.foldersInFolder.rowCount():
