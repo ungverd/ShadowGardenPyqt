@@ -15,15 +15,6 @@
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
-    <item row="15" column="1">
-     <widget class="QLabel" name="LblHelp">
-      <property name="text">
-       <string>Файлы в неподходящем формате выделены красным. 
-Для конвертации нажмите «Конвертировать»
-Или эти файлы можно пропустить.</string>
-      </property>
-     </widget>
-    </item>
     <item row="19" column="1">
      <widget class="QLabel" name="LblStep3">
       <property name="font">
@@ -35,6 +26,16 @@
        <string>Шаг3. Соотнести с карточками</string>
       </property>
      </widget>
+    </item>
+    <item row="10" column="1" colspan="2">
+     <widget class="QLineEdit" name="LinePathSource">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+     </widget>
+    </item>
+    <item row="3" column="1" colspan="2">
+     <widget class="QLineEdit" name="LinePathDest"/>
     </item>
     <item row="5" column="1">
      <widget class="QLabel" name="LblStep2">
@@ -48,10 +49,13 @@
       </property>
      </widget>
     </item>
-    <item row="8" column="1">
-     <widget class="QLabel" name="LblPathSource">
+    <item row="7" column="1" colspan="2">
+     <widget class="QPushButton" name="BtnChooseSource">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
       <property name="text">
-       <string>Или введите путь до папки</string>
+       <string>Выбрать папку</string>
       </property>
      </widget>
     </item>
@@ -59,6 +63,13 @@
      <widget class="QLabel" name="LblFiles">
       <property name="text">
        <string>Файлы в папке:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="8" column="1">
+     <widget class="QLabel" name="LblPathSource">
+      <property name="text">
+       <string>Или введите путь до папки</string>
       </property>
      </widget>
     </item>
@@ -79,72 +90,41 @@
       </property>
      </widget>
     </item>
-    <item row="7" column="1" colspan="2">
-     <widget class="QPushButton" name="BtnChooseSource">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
+    <item row="15" column="1">
+     <widget class="QLabel" name="LblHelp">
       <property name="text">
-       <string>Выбрать папку</string>
+       <string>Файлы в неподходящем формате выделены красным. 
+Для конвертации нажмите «Конвертировать»
+Или эти файлы можно пропустить.</string>
       </property>
      </widget>
     </item>
-    <item row="10" column="1" colspan="2">
-     <widget class="QLineEdit" name="LinePathSource">
-      <property name="enabled">
-       <bool>false</bool>
+    <item row="16" column="1">
+     <widget class="QLabel" name="label">
+      <property name="text">
+       <string>После конвертации одной папки вы можете 
+ выбрать следующую.</string>
       </property>
      </widget>
     </item>
-    <item row="3" column="1" colspan="2">
-     <widget class="QLineEdit" name="LinePathDest"/>
+    <item row="11" column="1" colspan="2">
+     <widget class="QLabel" name="LblSource">
+      <property name="text">
+       <string>Текущая папка:</string>
+      </property>
+     </widget>
     </item>
-    <item row="22" column="1" colspan="2">
-     <widget class="QLabel" name="LblFormat">
+    <item row="17" column="1" colspan="2">
+     <widget class="QLabel" name="LblProgress">
       <property name="font">
        <font>
-        <pointsize>6</pointsize>
+        <pointsize>10</pointsize>
        </font>
       </property>
       <property name="text">
-       <string>Для справки: подходящий формат wav, 16бит, частота 48000 </string>
+       <string/>
       </property>
      </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QPushButton" name="BtnCreateDest">
-      <property name="text">
-       <string>Создать папку в текущей</string>
-      </property>
-     </widget>
-    </item>
-    <item row="21" column="1">
-     <widget class="QPushButton" name="BtnCards">
-      <property name="enabled">
-       <bool>false</bool>
-      </property>
-      <property name="text">
-       <string>Начать соотносить</string>
-      </property>
-     </widget>
-    </item>
-    <item row="14" column="1" colspan="2">
-     <widget class="QListView" name="LstFiles"/>
-    </item>
-    <item row="0" column="1" colspan="2">
-     <widget class="QLabel" name="LblStep1">
-      <property name="font">
-       <font>
-        <pointsize>12</pointsize>
-       </font>
-      </property>
-      <property name="text">
-       <string>Шаг1. Выбор папки для итоговых файлов</string>
-      </property>
-     </widget>
-    </item>
-    <item row="20" column="1" colspan="2">
-     <widget class="QListView" name="LstDirs"/>
     </item>
     <item row="4" column="1" colspan="2">
      <widget class="QLabel" name="LblDest">
@@ -152,6 +132,16 @@
        <string>Выбрана папка:</string>
       </property>
      </widget>
+    </item>
+    <item row="18" column="1" colspan="2">
+     <widget class="QPushButton" name="BtnReady">
+      <property name="text">
+       <string>Все папки выбраны</string>
+      </property>
+     </widget>
+    </item>
+    <item row="14" column="1" colspan="2">
+     <widget class="QListView" name="LstFiles"/>
     </item>
     <item row="16" column="2">
      <widget class="QPushButton" name="BtnSkip">
@@ -170,14 +160,10 @@
       </property>
      </widget>
     </item>
-    <item row="11" column="1" colspan="2">
-     <widget class="QLabel" name="LblSource">
-      <property name="text">
-       <string>Текущая папка:</string>
-      </property>
-     </widget>
+    <item row="21" column="1" colspan="2">
+     <widget class="QListView" name="LstDirs"/>
     </item>
-    <item row="21" column="2">
+    <item row="22" column="2">
      <widget class="QPushButton" name="BtnStop">
       <property name="enabled">
        <bool>false</bool>
@@ -187,23 +173,54 @@
       </property>
      </widget>
     </item>
-    <item row="18" column="1" colspan="2">
-     <widget class="QPushButton" name="BtnReady">
+    <item row="23" column="1" colspan="2">
+     <widget class="QLabel" name="LblFormat">
+      <property name="font">
+       <font>
+        <pointsize>6</pointsize>
+       </font>
+      </property>
       <property name="text">
-       <string>Все папки выбраны</string>
+       <string>Для справки: подходящий формат wav, 16бит, частота 48000 </string>
       </property>
      </widget>
     </item>
-    <item row="16" column="1">
-     <widget class="QLabel" name="label">
+    <item row="1" column="1">
+     <widget class="QPushButton" name="BtnCreateDest">
       <property name="text">
-       <string>После конвертации одной папки вы можете 
- выбрать следующую.</string>
+       <string>Создать папку в текущей</string>
       </property>
      </widget>
     </item>
-    <item row="17" column="1" colspan="2">
-     <widget class="QLabel" name="LblProgress">
+    <item row="0" column="1" colspan="2">
+     <widget class="QLabel" name="LblStep1">
+      <property name="font">
+       <font>
+        <pointsize>12</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>Шаг1. Выбор папки для итоговых файлов</string>
+      </property>
+     </widget>
+    </item>
+    <item row="22" column="1">
+     <widget class="QPushButton" name="BtnCards">
+      <property name="enabled">
+       <bool>false</bool>
+      </property>
+      <property name="text">
+       <string>Начать соотносить</string>
+      </property>
+     </widget>
+    </item>
+    <item row="20" column="1">
+     <widget class="QLabel" name="LblCards">
+      <property name="font">
+       <font>
+        <pointsize>10</pointsize>
+       </font>
+      </property>
       <property name="text">
        <string/>
       </property>
