@@ -11,9 +11,9 @@ for f in os.listdir(dest):
         src = os.path.join(dest, f)
         with open(src, "rb") as f:
             arr = f.read()
-            if arr[37:41] != b"data":
+            data_pos = arr.find(b"data")
+            if data_pos > 36:
                 with open(src, "wb") as ff:
-                    data_pos = arr.find(b"data", 37)
                     new_arr = arr[:36] + arr[data_pos:]
                     ff.write(new_arr)
 
