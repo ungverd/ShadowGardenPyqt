@@ -20,11 +20,6 @@ FRAMERATE = 48000
 SAMPLEWIDTH = 2  # 2 bytes == 16 bits
 SAMPLEFMT = 's16'  # ffmpeg format
 
-BLACK = (0, 0, 0)
-RED = (200, 0, 0)
-GRAY = (100, 100, 100)
-
-
 # EMULATION WITH KEYS
 class Usbhost:
     @staticmethod
@@ -76,7 +71,6 @@ class State(Enum):
 class MusicProcessor:
     state: State = State.NOTHING_SELECTED
     folder_names: List[str] = field(default_factory=list)
-    classify_dict: Dict[str, FileFormat] = field(default_factory=dict)
     process_dict: Dict[str, FileFormat] = field(default_factory=dict)
     dest: str = ""
     source: str = ""
@@ -109,23 +103,20 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
         self.BtnChooseSource.clicked.connect(self.select_folder)
         self.BtnConvert.clicked.connect(self.process_files)
-        self.BtnSkip.clicked.connect(self.process_files)
         self.LinePathSource.editingFinished.connect(self.get_folder_from_field)
 
         self.BtnCards.clicked.connect(self.apply_cards_prepare)
         self.BtnStop.clicked.connect(self.tear_down)
-        self.BtnReady.clicked.connect(self.files_ready)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.timertick)
 
         self.filesInFolder = QtGui.QStandardItemModel()
-        self.LstFiles.setModel(self.filesInFolder)
         self.foldersInFolder = QtGui.QStandardItemModel()
         self.LstDirs.setModel(self.foldersInFolder)
 
         self.all_controls = [self.BtnChooseDest, self.BtnCreateDest, self.LinePathDest,
-                             self.BtnChooseSource, self.LinePathSource, self.BtnConvert, self.BtnSkip, self.BtnReady,
+                             self.BtnChooseSource, self.LinePathSource, self.BtnConvert,
                              self.BtnCards, self.BtnStop]
 
     def select_folder(self):
@@ -200,26 +191,14 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
         self.filesInFolder.clear()
         self.BtnConvert.setEnabled(False)
-        self.BtnSkip.setEnabled(False)
         self.foldersInFolder.clear()
         self.BtnCards.setEnabled(False)
         self.BtnStop.setEnabled(False)
-        self.BtnReady.setEnabled(False)
         self.LblProgress.setText("")
         self.LblCards.setText("")
         return
 
-    def insert_item_with_color(self, text: str, color):
-        """
-        addds coloured item
-        :param text: text for item
-        :param color: color for item
-        :return:
-        """
-        item = QtGui.QStandardItem(text)
-        item.setForeground(QtGui.QBrush(QtGui.QColor(*color)))
-        self.filesInFolder.appendRow(item)
-        return
+
 
     def select_source_ui_and_convert(self):
         """
@@ -228,12 +207,9 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         have red colour and we may convert them
         :return:
         """
-        self.state.classify_dict = dict()
-        self.state.process_dict = dict()
         self.set_source_ui()
-        for filename in os.listdir(self.state.source):
-            self.classify_file(filename)
         self.state.state = State.SOURCE_SELECTED
+        self.BtnConvert.setEnabled(True)
         return
 
     def set_source_ui(self):
@@ -242,37 +218,11 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.LblSource.setText("Выбрана папка: %s" % self.state.source)
-        if self.state.source != self.LinePathSource.text():
-            self.LinePathSource.clear()
-        self.BtnConvert.setEnabled(False)
-        self.BtnSkip.setEnabled(False)
-        self.filesInFolder.clear()
+
         return
 
-    def classify_file(self, filename: str):
-        """
-        classifies file as correct, incorrect and not music, writes res in dict and adds coloured item to files list
-        :param filename: name of file to slassify
-        :return:
-        """
-        src: str = os.path.join(self.state.source, filename)
-        if not os.path.isdir(src):
-            try:
-                res = check_file_format(src)
-                self.state.classify_dict[src] = res
-                if res == FileFormat.CORRECT:
-                    self.insert_item_with_color(filename, BLACK)
-                    self.BtnSkip.setEnabled(True)
-                elif res == FileFormat.NOT_MUSIC:
-                    self.insert_item_with_color(filename, GRAY)
-                else:
-                    self.insert_item_with_color(filename, RED)
-                    self.BtnConvert.setEnabled(True)
-            except (FileNotFoundError, OSError):
-                message_popup("Ошибка открытия файла %s" % src, 'error')
-        return
 
-    def copy_and_convert(self, src: str, dst: str, convert: bool) -> bool:
+    def copy_and_convert(self, src: str, dst: str) -> bool:
         """
         convert file from src path to dest path using correct format (wav, 16bit, 48000) or just copy in format is good
         :param convert: convert files or skip them
@@ -280,13 +230,18 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :param dst:dest file
         :return: status of operation (False only in is musical file and was not converted)
         """
-        res = self.state.classify_dict[src]
+        res = check_file_format(src)
+        if not (os.path.exists(os.path.split(dst)[0])):
+            os.mkdir(os.path.split(dst)[0])
+        if res == FileFormat.NOT_MUSIC:
+            self.state.current_file += 1
         if res == FileFormat.CORRECT and src != dst:
             copyfile(src, dst)
+            self.state.current_file += 1
             return True
-        elif res == FileFormat.INCORRECT and convert:
+        elif res == FileFormat.INCORRECT:
             try:
-                command, args = "ffmpeg", ["-i", src, "-ac", "1", "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), dst]
+                command, args = "ffmpeg", ["-i", src, "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), dst]
                 process = QtCore.QProcess(self)
                 process.finished.connect(self.file_converted)
                 self.state.process_dict[src] = process
@@ -300,7 +255,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def remove_excess_metadata(self):
         self.LblProgress.setText("проверка файлов...")
-        command, args = "python", ["verifier.py", os.path.join(self.state.dest, os.path.basename(self.state.source))]
+        command, args = "python", ["verifier.py", self.state.dest]
         process = QtCore.QProcess(self)
         process.finished.connect(self.set_converted_ui)
         process.start(command, args)
@@ -319,7 +274,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             message_popup("Не удалось конвертировать файл %s" % src_file, "error")
         self.state.current_file += 1
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
-        if self. state.current_file >= self.state.files_number:
+        if self.state.current_file >= self.state.files_number:
             self.remove_excess_metadata()
         return
 
@@ -416,19 +371,19 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         start convertation or copy for all files in source folder
         :return:
         """
-        filelist: List[str] = [name for name in os.listdir(self.state.source)
-                               if not os.path.isdir(os.path.join(self.state.source, name))]
-        self.state.files_number = len([x for x in self.state.classify_dict.keys()
-                                       if self.state.classify_dict[x] == FileFormat.INCORRECT])
-        full_dest: str = create_new_folder(os.path.join(self.state.dest, os.path.basename(self.state.source)))
-        basename = os.path.basename(full_dest)
-        self.state.folder_names.append(basename)
-        self.foldersInFolder.appendRow(QtGui.QStandardItem(basename))
+        filelist: List[str] = []
+        for directory in os.listdir(self.state.source):
+            for f in os.listdir(os.path.join(self.state.source, directory)):
+                filelist.append(os.path.join(directory,f)) 
+        self.state.files_number = len(filelist)
+        for directory in os.listdir(self.state.source):
+            self.state.folder_names.append(directory)
+            self.foldersInFolder.appendRow(QtGui.QStandardItem(directory))
         for filename in filelist:
             src_full = os.path.join(self.state.source, filename)
             dst_filename = os.path.splitext(filename)[0] + '.wav'
-            dst_full = os.path.join(full_dest, dst_filename)
-            res = self.copy_and_convert(src_full, dst_full, self.state.convert)
+            dst_full = os.path.join(self.state.dest, dst_filename)
+            res = self.copy_and_convert(src_full, dst_full)
             if not res:
                 message_popup('Не удалось конвертировать файл %s' % src_full, 'error')
         return
@@ -469,10 +424,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         """
         self.BtnCards.setEnabled(True)
         self.BtnConvert.setEnabled(False)
-        self.BtnSkip.setEnabled(False)
         self.BtnChooseSource.setEnabled(False)
         self.LinePathSource.setEnabled(False)
-        self.BtnReady.setEnabled(False)
         return
 
     def set_converted_ui(self):
@@ -481,13 +434,8 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         self.LblProgress.setText("Конвертация закончена")
-        for_enable = [self.BtnCreateDest, self.BtnChooseDest, self.LinePathDest, self.BtnChooseSource,
-                      self.LinePathSource]
-        if self.foldersInFolder.rowCount():
-            self.BtnReady.setEnabled(True)
-        for control in for_enable:
-            control.setEnabled(True)
-        self.state.state = State.DEST_SELECTED
+        self.BtnCards.setEnabled(True)
+        self.state.state = State.FILES_READY
         return
 
     def closeEvent(self, event):
