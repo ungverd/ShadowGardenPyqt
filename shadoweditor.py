@@ -255,7 +255,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def remove_excess_metadata(self):
         self.LblProgress.setText("проверка файлов...")
-        command, args = "python", ["verifier.py", self.state.dest]
+        command, args = "python3", ["verifier.py", self.state.dest]
         process = QtCore.QProcess(self)
         process.finished.connect(self.set_converted_ui)
         process.start(command, args)

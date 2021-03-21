@@ -1,14 +1,64 @@
 import sys
 import os
+
+def latinize(s):
+    lat = {
+        "й": "y",
+        "ц": "cz",
+        "у": "u",
+        "к": "k",
+        "е": "e",
+        "н": "n",
+        "г": "g",
+        "ш": "sh",
+        "щ": "sch",
+        "з": "z",
+        "х": "h",
+        "ъ": "'",
+        "ф": "f",
+        "ы": "yi",
+        "в": "v",
+        "а": "a",
+        "п": "p",
+        "р": "r",
+        "о": "o",
+        "л": "l",
+        "д": "d",
+        "ж": "j",
+        "э": "e",
+        "я": "ya",
+        "ч": "ch",
+        "с": "s",
+        "м": "m",
+        "и": "i",
+        "т": "t",
+        "ь": "'",
+        "б": "b",
+        "ю": "yu",
+        "ё": "yo"
+    }
+
+    if len(s) == len(s.encode()):
+        return False
+    new_name = []
+    for ch in s:
+        if ch in lat:
+            new_name.append(lat[ch])
+        elif ch.lower() in lat:
+            new_name.append(lat[ch.lower()].upper())
+        else:
+            new_name.append((str(ch.encode())[2:-1]).replace('\\', ''))
+    return("".join(new_name))
+
 """
 sometimes in .wav file there is more metadata than our program can handle.
 This function removes it
 """
 dest = os.path.normpath(sys.argv[1])
 
-for f in os.listdir(dest):
-    if f[-4:] == ".wav":
-        src = os.path.join(dest, f)
+for directory in os.listdir(dest):
+    for filename in os.listdir(os.path.join(dest, directory)):
+        src = os.path.join(dest, directory, filename)
         with open(src, "rb") as f:
             arr = f.read()
             data_pos = arr.find(b"data")
@@ -16,4 +66,6 @@ for f in os.listdir(dest):
                 with open(src, "wb") as ff:
                     new_arr = arr[:36] + arr[data_pos:]
                     ff.write(new_arr)
-
+    new_filename = latinize(filename)
+    if new_filename:
+        os.rename(os.path.join(dest, directory, filename),os.path.join(dest, directory, new_filename))
