@@ -241,7 +241,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             return True
         elif res == FileFormat.INCORRECT:
             try:
-                command, args = "ffmpeg", ["-i", src, "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), dst]
+                command, args = "ffmpeg", ["-i", src, "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), "-ac", "1", dst]
                 process = QtCore.QProcess(self)
                 process.finished.connect(self.file_converted)
                 self.state.process_dict[src] = process
@@ -460,7 +460,7 @@ def check_file_format(path):
     if os.path.splitext(path)[1] == ".wav":
         try:
             with wave.open(path, mode='rb') as sound:
-                if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE:
+                if sound.getsampwidth() == SAMPLEWIDTH and sound.getframerate() == FRAMERATE and sound.getnchannels() == 1:
                     return FileFormat.CORRECT
                 return FileFormat.INCORRECT
         except (wave.Error, RuntimeError):
