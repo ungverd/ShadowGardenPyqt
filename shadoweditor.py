@@ -26,6 +26,55 @@ class Usbhost:
     def get_device_port():
         return 500
 
+def latinize(s):
+    lat = {
+        "й": "y",
+        "ц": "cz",
+        "у": "u",
+        "к": "k",
+        "е": "e",
+        "н": "n",
+        "г": "g",
+        "ш": "sh",
+        "щ": "sch",
+        "з": "z",
+        "х": "h",
+        "ъ": "'",
+        "ф": "f",
+        "ы": "yi",
+        "в": "v",
+        "а": "a",
+        "п": "p",
+        "р": "r",
+        "о": "o",
+        "л": "l",
+        "д": "d",
+        "ж": "j",
+        "э": "e",
+        "я": "ya",
+        "ч": "ch",
+        "с": "s",
+        "м": "m",
+        "и": "i",
+        "т": "t",
+        "ь": "'",
+        "б": "b",
+        "ю": "yu",
+        "ё": "yo"
+    }
+
+    if len(s) == len(s.encode()):
+        return s
+    new_name = []
+    for ch in s:
+        if ch in lat:
+            new_name.append(lat[ch])
+        elif ch.lower() in lat:
+            new_name.append(lat[ch.lower()].upper())
+        else:
+            new_name.append((str(ch.encode())[2:-1]).replace('\\', ''))
+    return("".join(new_name))
+
 
 class serial:
     class Serial(QtWidgets.QWidget):
@@ -255,7 +304,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def remove_excess_metadata(self):
         self.LblProgress.setText("проверка файлов...")
-        command, args = "python3", ["verifier.py", self.state.dest]
+        command, args = "python", ["verifier.py", self.state.dest]
         process = QtCore.QProcess(self)
         process.finished.connect(self.set_converted_ui)
         process.start(command, args)
@@ -382,6 +431,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         for filename in filelist:
             src_full = os.path.join(self.state.source, filename)
             dst_filename = os.path.splitext(filename)[0] + '.wav'
+            dst_filename = latinize(dst_filename)
             dst_full = os.path.join(self.state.dest, dst_filename)
             res = self.copy_and_convert(src_full, dst_full)
             if not res:
