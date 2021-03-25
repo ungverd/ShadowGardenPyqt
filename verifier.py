@@ -63,9 +63,9 @@ for directory in os.listdir(dest):
             arr = f.read()
             data_pos = arr.find(b"data")
             if data_pos > 36:
-                print(data_pos)
-                len1 = (len(arr) - 8).to_bytes(4, "little")
-                len2 = (len(arr) - 150).to_bytes(4, "little")
+                will_change = data_pos - 36
+                len1 = (len(arr) - will_change - 8).to_bytes(4, "little")
+                len2 = (len(arr) - will_change - 150).to_bytes(4, "little")
                 with open(src, "wb") as ff:
                     new_arr = arr[:4] + len1 + arr[8:36] + b"data" + len2 + arr[data_pos + 8:]
                     ff.write(new_arr)
