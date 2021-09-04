@@ -285,10 +285,16 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         if res == FileFormat.NOT_MUSIC:
             self.state.current_file += 1
         if res == FileFormat.CORRECT and src != dst:
+            while os.path.exists(dst):
+                f_name, f_ext = os.path.splitext(dst)
+                dst = f_name + "(copy)" + f_ext
             copyfile(src, dst)
             self.state.current_file += 1
             return True
         elif res == FileFormat.INCORRECT:
+            while os.path.exists(dst):
+                f_name, f_ext = os.path.splitext(dst)
+                dst = f_name + "(copy)" + f_ext
             try:
                 command, args = "ffmpeg", ["-i", src, "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), "-ac", "1", dst]
                 process = QtCore.QProcess(self)
