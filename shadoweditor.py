@@ -5,6 +5,7 @@ from enum import Enum
 import wave
 import csv
 from typing import List, Dict
+import struct
 # import serial
 # import Usbhost
 
@@ -25,6 +26,29 @@ class Usbhost:
     @staticmethod
     def get_device_port():
         return 500
+
+class serial:
+    class Serial(QtWidgets.QWidget):
+        def __init__(self, port, baudrate, timeout):
+            super().__init__()
+            self.i = 0
+            self.values = list()
+            self.port = port
+            self.baudrate = baudrate
+            self.timeout = timeout
+            self.previous = ""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+        def readall(self):
+            res = b'\r'.join(b'Card: 1234 %i' % i for i in self.values)
+            self.values = []
+            return res
+# end of emulation
 
 def latinize(s):
     lat = {
@@ -75,30 +99,26 @@ def latinize(s):
             new_name.append((str(ch.encode())[2:-1]).replace('\\', ''))
     return("".join(new_name))
 
+class WavMetadataRemover(QtCore.QObject):
+    finished = QtCore.pyqtSignal()
 
-class serial:
-    class Serial(QtWidgets.QWidget):
-        def __init__(self, port, baudrate, timeout):
-            super().__init__()
-            self.i = 0
-            self.values = list()
-            self.port = port
-            self.baudrate = baudrate
-            self.timeout = timeout
-            self.previous = ""
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            pass
-
-        def readall(self):
-            res = b'\r'.join(b'Card: 1234 %i' % i for i in self.values)
-            self.values = []
-            return res
-# end of emulation
-
+    def run(self):
+        for directory in os.listdir(self.dest):
+            for filename in os.listdir(os.path.join(self.dest, directory)):
+                src = os.path.join(self.dest, directory, filename)
+                with open(src, "rb") as f:
+                    arr = f.read()
+                    data_pos = arr.find(b"data")
+                    if data_pos > 36:
+                        will_change = data_pos - 36
+                        len1_num = len(arr) - will_change - 8
+                        len2_num = len(arr) - will_change - 150
+                        len1 = struct.pack("<i", len1_num)
+                        len2 = struct.pack("<i", len2_num)
+                        with open(src, "wb") as ff:
+                            new_arr = arr[:4] + len1 + arr[8:36] + b"data" + len2 + arr[data_pos + 8:]
+                            ff.write(new_arr)
+        self.finished.emit()
 
 class FileFormat(Enum):
     NOT_MUSIC = 1
@@ -310,11 +330,17 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     def remove_excess_metadata(self):
         self.LblProgress.setText("проверка файлов...")
-        command, args = "python", ["verifier.py", self.state.dest]
-        process = QtCore.QProcess(self)
-        process.finished.connect(self.set_converted_ui)
-        process.start(command, args)
-        
+        self.thread = QtCore.QThread()
+        self.worker = WavMetadataRemover()
+        self.worker.dest = self.state.dest
+        self.worker.moveToThread(self.thread)
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.thread.finished.connect(self.set_converted_ui)
+        self.thread.start()
+
 
     def file_converted(self):
         """
