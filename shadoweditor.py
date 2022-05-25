@@ -107,7 +107,6 @@ class WavMetadataRemover(QtCore.QObject):
         for directory in os.listdir(self.dest):
             for filename in os.listdir(os.path.join(self.dest, directory)):
                 src = os.path.join(self.dest, directory, filename)
-                #print("metadata remover", src)
                 with open(src, "rb") as f:
                     arr = f.read()
                     data_pos = arr.find(b"data")
@@ -308,6 +307,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             os.mkdir(os.path.split(dst)[0])
         if res == FileFormat.NOT_MUSIC:
             self.state.current_file += 1
+            return False
         if res == FileFormat.CORRECT and src != dst:
             while os.path.exists(dst):
                 f_name, f_ext = os.path.splitext(dst)
@@ -315,13 +315,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
             copyfile(src, dst)
             self.state.current_file += 1
             return True
-        elif res == FileFormat.INCORRECT:
+        if res == FileFormat.INCORRECT:
             while os.path.exists(dst):
                 f_name, f_ext = os.path.splitext(dst)
                 dst = f_name + "(copy)" + f_ext
             try:
                 command, args = "ffmpeg", ["-i", src, "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), "-ac", "1", dst]
-                #print("copy and convert", dst)
                 process = QtCore.QProcess(self)
                 process.finished.connect(self.file_converted)
                 self.state.process_dict[src] = process
@@ -355,15 +354,12 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         sender = self.sender()
         #print("exitcode", sender.exitCode())
         #print("exitstatus", sender.exitStatus())
-        #print([file for file in self.state.process_dict.keys() if self.state.process_dict[file] == sender][0])
         if sender.exitCode() != 0:
             src_file = [file for file in self.state.process_dict.keys() if self.state.process_dict[file] == sender][0]
             message_popup("Не удалось конвертировать файл %s" % src_file, "error")
         self.state.current_file += 1
-        #print("cf", self.state.current_file)
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
-        if self.state.current_file >= self.state.files_number:
-            #print("cf", self.state.current_file,"fn", self.state.files_number)
+        if self.state.current_file > self.state.files_number:
             self.remove_excess_metadata()
         return
 
