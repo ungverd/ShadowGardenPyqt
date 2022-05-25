@@ -6,8 +6,8 @@ import wave
 import csv
 from typing import List, Dict
 import struct
-# import serial
-# import Usbhost
+import serial
+import Usbhost
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from loguru import logger
@@ -22,7 +22,7 @@ SAMPLEWIDTH = 2  # 2 bytes == 16 bits
 SAMPLEFMT = 's16'  # ffmpeg format
 
 # EMULATION WITH KEYS
-class Usbhost:
+'''class Usbhost:
     @staticmethod
     def get_device_port():
         return 500
@@ -48,6 +48,7 @@ class serial:
             res = b'\r'.join(b'Card: 1234 %i' % i for i in self.values)
             self.values = []
             return res
+'''
 # end of emulation
 
 def latinize(s):
@@ -106,6 +107,7 @@ class WavMetadataRemover(QtCore.QObject):
         for directory in os.listdir(self.dest):
             for filename in os.listdir(os.path.join(self.dest, directory)):
                 src = os.path.join(self.dest, directory, filename)
+                #print("metadata remover", src)
                 with open(src, "rb") as f:
                     arr = f.read()
                     data_pos = arr.find(b"data")
@@ -155,11 +157,13 @@ class MusicProcessor:
 class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
 
     #  EMULATION WITH KEYS #
+    '''
     def keyPressEvent(self, e):
         if self.state.state == State.CARDS:
             self.state.ser.values.append(self.state.ser.i)
             self.state.ser.i += 1
         e.accept()
+    '''
     # END OF EMULATION
 
     def __init__(self):
@@ -317,6 +321,7 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
                 dst = f_name + "(copy)" + f_ext
             try:
                 command, args = "ffmpeg", ["-i", src, "-af", "loudnorm", "-ar", str(FRAMERATE), "-sample_fmt", str(SAMPLEFMT), "-ac", "1", dst]
+                #print("copy and convert", dst)
                 process = QtCore.QProcess(self)
                 process.finished.connect(self.file_converted)
                 self.state.process_dict[src] = process
@@ -348,14 +353,17 @@ class ShadowUi(QtWidgets.QMainWindow, ui.Ui_MainWindow):
         :return:
         """
         sender = self.sender()
-        print(sender.exitCode())
-        print(sender.exitStatus())
+        #print("exitcode", sender.exitCode())
+        #print("exitstatus", sender.exitStatus())
+        #print([file for file in self.state.process_dict.keys() if self.state.process_dict[file] == sender][0])
         if sender.exitCode() != 0:
             src_file = [file for file in self.state.process_dict.keys() if self.state.process_dict[file] == sender][0]
             message_popup("Не удалось конвертировать файл %s" % src_file, "error")
         self.state.current_file += 1
+        #print("cf", self.state.current_file)
         self.LblProgress.setText("Конвертируется %i файл из %i" % (self.state.current_file, self.state.files_number))
         if self.state.current_file >= self.state.files_number:
+            #print("cf", self.state.current_file,"fn", self.state.files_number)
             self.remove_excess_metadata()
         return
 
